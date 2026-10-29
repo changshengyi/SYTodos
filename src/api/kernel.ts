@@ -89,12 +89,6 @@ export async function fetchRowsByIds(ids: string[]): Promise<TaskBlockRow[]> {
   }
 }
 
-/** 判断某个块是否仍然存在于索引中（用于识别任务块已被删除） */
-export async function blockExists(id: string): Promise<boolean> {
-  const rows = await sql<{ id: string }[]>(`SELECT id FROM blocks WHERE id = '${escapeLiteral(id)}'`)
-  return Array.isArray(rows) && rows.length > 0
-}
-
 export interface NotebookInfo {
   id: string
   name: string
@@ -137,10 +131,6 @@ export function moveBlock(id: string, previousId: string, parentId: string): Pro
 
 export function deleteBlock(id: string): Promise<unknown> {
   return post<unknown>("/api/block/deleteBlock", { id })
-}
-
-export function pushMsg(msg: string, timeout = 4000): Promise<unknown> {
-  return post<unknown>("/api/notification/pushMsg", { msg, timeout })
 }
 
 /** 推送错误提示 */

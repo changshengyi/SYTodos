@@ -86,30 +86,3 @@ export function rowToTask(row: TaskBlockRow, attrsInput?: Record<string, string>
     updated: row.updated ?? "",
   }
 }
-
-/** Task → 需要写入的属性集合（空串表示删除） */
-export function taskToAttrs(task: Task, fitted: Partial<Task>): Record<string, string> {
-  const attrs: Record<string, string> = {}
-  if (fitted.priority !== undefined) {
-    attrs[ATTR.priority] = task.priority === 3 ? "" : toAttrPriority(task.priority)
-  }
-  if (fitted.due !== undefined) {
-    attrs[ATTR.due] = task.due
-  }
-  if (fitted.repeat !== undefined) {
-    attrs[ATTR.repeat] = task.repeat
-  }
-  if (fitted.category !== undefined) {
-    attrs[ATTR.category] = task.category
-  }
-  if (fitted.note !== undefined) {
-    attrs[ATTR.note] = task.note
-  }
-  if (fitted.sort !== undefined) {
-    attrs[ATTR.sort] = String(task.sort)
-  }
-  if (fitted.trashed !== undefined) {
-    attrs[ATTR.trash] = task.trashed ? new Date().toISOString() : ""
-  }
-  return attrs
-}

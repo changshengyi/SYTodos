@@ -136,12 +136,7 @@ export function orderedForest(tasks: Task[], ids: Set<string>): Task[] {
   return result
 }
 
-export interface GroupContext {
-  i18n: Record<string, string>
-  groupTasks: (tasks: Task[], sortBy: SortBy) => Group[]
-}
-
-/** 计算每个已完成父任务下所有子孙（用于级联完成） */
+/** 计算某个父任务下的所有子孙（用于级联完成） */
 export function collectDescendants(rootId: string, index: Map<string, Task>): Task[] {
   const childrenByParent = new Map<string, Task[]>()
   for (const task of index.values()) {

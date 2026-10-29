@@ -15,19 +15,6 @@ export function pushUndo(entry: UndoEntry): void {
   redoStack.value = []
 }
 
-export function clearHistory(): void {
-  undoStack.value = []
-  redoStack.value = []
-}
-
-export function canUndo(): boolean {
-  return undoStack.value.length > 0
-}
-
-export function canRedo(): boolean {
-  return redoStack.value.length > 0
-}
-
 export async function undo(): Promise<UndoEntry | undefined> {
   const entry = undoStack.value.pop()
   if (!entry) {
@@ -46,12 +33,4 @@ export async function redo(): Promise<UndoEntry | undefined> {
   await entry.redo?.()
   undoStack.value.push(entry)
   return entry
-}
-
-export function undoDepth(): number {
-  return undoStack.value.length
-}
-
-export function redoDepth(): number {
-  return redoStack.value.length
 }

@@ -206,20 +206,23 @@ async function patch(id: string, changes: Partial<Task>, options: PatchOptions):
         label: options.label,
         undo: async () => {
           const live = taskState.tasks.get(id)
-          if (live) {
-            Object.assign(live, before)
-            bumpVersion()
+          if (!live) {
+            return
           }
-          await writeTask(before, taskState.tasks.get(id))
+          // 先留下撤销前的值作为写入基线，否则 diff 会算成「无变化」而不落盘
+          const beforeUndo = { ...live }
+          Object.assign(live, before)
+          bumpVersion()
+          await writeTask(before, beforeUndo)
         },
         redo: async () => {
           const live = taskState.tasks.get(id)
+          await writeTask({ ...before, ...changes }, before)
           if (live) {
             Object.assign(live, changes)
             live.updated = nowStamp()
             bumpVersion()
           }
-          await writeTask({ ...before, ...changes }, before)
         },
       })
     }
