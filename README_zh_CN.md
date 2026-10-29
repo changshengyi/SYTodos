@@ -101,6 +101,11 @@ npm run dev          # 构建产物直接写入 工作空间/data/plugins/siyuan
 
 ## 上架集市
 
+> 澄清：这里的 PR 是**给思源官方集市索引仓库登记你自己的仓库**，不是给某个插件作者提代码。
+> 你完全自建，不需要 Fork 别人的插件，也不需要通知任何原作者。
+> 若只想自己用、不想进集市，可以跳过本节与这个 PR，直接在思源里
+> `设置 → 集市 → 已下载 → 插件 → 手动安装` 选择本地 `package.zip` 即可。
+
 1. 把 `plugin.json` 里的 `author`、`url` 改成你自己的 GitHub 信息（`name` 必须与仓库名一致）。
 2. `npm run release` 通过后在 GitHub 新建 Release：Tag = 插件版本号（如 `0.1.0`），并附上 `package.zip`。
 3. Fork [siyuan-note/bazaar](https://github.com/siyuan-note/bazaar)，在 `plugins.txt` 末尾加一行 `你的用户名/siyuan-plugin-blocktodo`，提 PR 到 `main`。

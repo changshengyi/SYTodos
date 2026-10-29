@@ -101,6 +101,12 @@ Then disable and re-enable the plugin in SiYuan.
 
 ## Publishing to the bazaar
 
+> Clarification: this PR **registers your own repository in SiYuan's official bazaar index**.
+> It is *not* a code contribution to another plugin author. Since this project is fully
+> independent, you never need to fork someone else's plugin or ask for permission.
+> If you only want to use it yourself, skip this section entirely and install
+> `package.zip` locally via `Settings -> Bazaar -> Downloaded -> Plugin -> Install manually`.
+
 1. Set `author` and `url` in `plugin.json` to your own GitHub info (`name` must match the repo name).
 2. Create a GitHub Release whose tag equals the plugin version (e.g. `0.1.0`) and attach `package.zip`.
 3. Fork [siyuan-note/bazaar](https://github.com/siyuan-note/bazaar), append one line `your-username/siyuan-plugin-blocktodo` to `plugins.txt`, and open a PR against `main`.
