@@ -1,0 +1,50 @@
+{
+  "name": "siyuan-plugin-blocktodo",
+  "author": "chang",
+  "url": "https://github.com/chang/siyuan-plugin-blocktodo",
+  "version": "0.1.0",
+  "minAppVersion": "3.0.0",
+  "backends": [
+    "windows",
+    "linux",
+    "darwin",
+    "docker",
+    "ios",
+    "android",
+    "harmony"
+  ],
+  "frontends": [
+    "desktop",
+    "mobile",
+    "browser-desktop",
+    "browser-mobile",
+    "desktop-window"
+  ],
+  "displayName": {
+    "default": "BlockTodo",
+    "zh-CN": "块待办"
+  },
+  "description": {
+    "default": "A block-native todo manager for SiYuan: every task is a real task-list block in your notes, with P0-P3 priority, due dates, repeats, notes, virtualized lists and keyboard-first interaction.",
+    "zh-CN": "面向思源的块原生待办管理器：每个待办就是笔记里真实的任务列表块。支持 P0-P3 优先级、截止日期、重复规则、备注、虚拟滚动列表与键盘优先交互。"
+  },
+  "readme": {
+    "default": "README.md",
+    "zh-CN": "README_zh_CN.md"
+  },
+  "funding": {
+    "openCollective": "",
+    "patreon": "",
+    "github": "",
+    "custom": []
+  },
+  "keywords": [
+    "待办",
+    "任务管理",
+    "优先级",
+    "截止日期",
+    "todo",
+    "task",
+    "productivity"
+  ]
+}

@@ -1,0 +1,20 @@
+# dependencies
+node_modules
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# build output
+dist
+dev
+package.zip
+
+# editors / os
+.vscode
+.idea
+.DS_Store
+__MACOSX
+
+# logs
+*.log
+*.log.*
