@@ -18,3 +18,7 @@ __MACOSX
 # logs
 *.log
 *.log.*
+
+# local env
+.env.local
+.env.*.local
