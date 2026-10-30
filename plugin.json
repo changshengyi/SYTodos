@@ -2,7 +2,7 @@
   "name": "siyuan-plugin-blocktodo",
   "author": "chang",
   "url": "https://github.com/chang/siyuan-plugin-blocktodo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minAppVersion": "3.0.0",
   "backends": [
     "windows",

@@ -35,9 +35,10 @@
 
   "scopeTitle": "数据范围",
   "scopeAll": "全部任务",
-  "scopeNote": "笔记任务",
+  "scopeNote": "SiYuan 任务",
   "scopeSpace": "独立空间",
 
+  "timeTitle": "时间",
   "modeTitle": "视图",
   "modeList": "列表",
   "modeTree": "树形",
@@ -124,7 +125,7 @@
   "spaceOpenDoc": "打开任务树文档",
 
   "settingTitle": "设置",
-  "settingDefaultDoc": "笔记待办的存放位置",
+  "settingDefaultDoc": "SiYuan 任务默认写入位置",
   "settingDefaultDocHint": "留空表示自动写入当天日记。",
   "settingPickDoc": "选择文档",
   "settingDefaultView": "默认时间视图",

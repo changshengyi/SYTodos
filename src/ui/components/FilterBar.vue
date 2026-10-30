@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DueFilter, Priority, TaskStatus } from "@/core/types"
+import type { DueFilter, Priority, TaskStatus, ViewId } from "@/core/types"
 import { PRIORITIES, STATUSES } from "@/core/types"
 import { strings } from "@/store/i18n"
 import {
@@ -12,7 +12,14 @@ import {
 
 import { useTasks } from "../useTasks"
 
-const { statusCounts } = useTasks()
+const { counts, statusCounts } = useTasks()
+
+const timeViews: { id: ViewId; key: string }[] = [
+  { id: "today", key: "today" },
+  { id: "week", key: "week" },
+  { id: "all", key: "all" },
+  { id: "trash", key: "trash" },
+]
 
 const dueOptions: { value: DueFilter; key: string }[] = [
   { value: "any", key: "dueAny" },
@@ -21,6 +28,19 @@ const dueOptions: { value: DueFilter; key: string }[] = [
   { value: "week", key: "dueWeek" },
   { value: "none", key: "dueNone" },
 ]
+
+function timeCount(view: ViewId): number {
+  switch (view) {
+    case "today":
+      return counts.value.today
+    case "week":
+      return counts.value.week
+    case "trash":
+      return counts.value.trash
+    default:
+      return counts.value.all
+  }
+}
 
 function statusLabel(status: TaskStatus): string {
   switch (status) {
@@ -43,6 +63,22 @@ function priorityLabel(priority: Priority): string {
 <template>
   <div class="bt-filter">
     <div class="bt-filter__row">
+      <span class="bt-filter__label">{{ strings.timeTitle || 'Time' }}</span>
+      <div class="bt-segment">
+        <button
+          v-for="view in timeViews"
+          :key="view.id"
+          class="bt-segment__item bt-segment__item--center"
+          :class="{ 'bt-segment__item--on': ui.view === view.id }"
+          @click="ui.view = view.id"
+        >
+          {{ strings[view.key] || view.id }}
+          <span v-if="timeCount(view.id)" class="bt-segment__count">{{ timeCount(view.id) }}</span>
+        </button>
+      </div>
+
+      <span class="bt-filter__divider" />
+
       <span class="bt-filter__label">{{ strings.filterStatus || 'Status' }}</span>
       <button
         v-for="status in STATUSES"
@@ -56,7 +92,7 @@ function priorityLabel(priority: Priority): string {
       </button>
     </div>
 
-    <div class="bt-filter__row">
+    <div v-if="ui.filterOpen" class="bt-filter__row">
       <span class="bt-filter__label">{{ strings.filterPriority || 'Priority' }}</span>
       <button
         v-for="priority in PRIORITIES"

@@ -166,7 +166,7 @@ async function onKeydown(event: KeyboardEvent): Promise<void> {
       <template v-else>
         <AppToolbar />
         <QuickAdd ref="quickAdd" />
-        <FilterBar v-if="ui.filterOpen" />
+        <FilterBar />
         <component :is="viewComponent" />
       </template>
     </div>

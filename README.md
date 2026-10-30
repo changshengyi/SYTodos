@@ -8,7 +8,7 @@
 
 | Space | Meaning |
 |---|---|
-| **Note tasks** | Every `- [ ]` task-list block you wrote anywhere. Aggregated automatically; editing one side updates the other. |
+| **SiYuan tasks** | Every `- [ ]` task-list block you wrote anywhere. Aggregated automatically; editing one side updates the other. |
 | **Workspace tree** | An **unlimited-depth** task tree stored in a dedicated document the plugin creates for you, independent of your notes. |
 
 Both live as real SiYuan blocks: uninstalling the plugin never loses a task. Extension fields (priority, status, due date, repeat, category, note) live in block attributes, never polluting the markdown body.
@@ -21,7 +21,15 @@ Both live as real SiYuan blocks: uninstalling the plugin never loses a task. Ext
 | **Tree** | Hierarchy only: any node grows children, nodes collapse; drag a task onto another node to make it a child. |
 | **Board** | Four status columns (To do / Doing / Done / Archived); drag a card to another column to change its status. |
 
-The sidebar combines three axes freely: **scope** (all / note / workspace) x **view mode** (list / tree / board) x **time view** (today / next 7 days / all / trash).
+### Layout
+
+| Area | Content |
+|---|---|
+| Left sidebar | **Scope**: all tasks / SiYuan tasks / workspace tree, plus the settings entry |
+| Content toolbar | Search, grouping and sorting; **top right** holds the view switch (list / tree / board) |
+| Below the search bar | **Time** (today / next 7 days / all / trash) and **status** filters; `≡` expands priority / due / category |
+
+The three axes combine freely: scope x view mode x time and filters.
 
 ## Status model
 

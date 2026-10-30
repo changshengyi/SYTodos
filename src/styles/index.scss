@@ -803,6 +803,36 @@ $bt-radius: 6px;
   border-radius: $bt-radius;
 }
 
+.bt-toolbar__modes {
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
+
+.bt-segment__item--center {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.bt-segment__count {
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--b3-theme-surface);
+  opacity: 0.75;
+}
+
+.bt-filter__divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--b3-border-color);
+}
+
 .bt-segment--vertical {
   flex-direction: column;
 }

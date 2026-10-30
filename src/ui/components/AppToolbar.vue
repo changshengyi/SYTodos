@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed } from "vue"
 
-import type { GroupBy, SortBy } from "@/core/types"
+import type { GroupBy, SortBy, ViewMode } from "@/core/types"
 import { strings } from "@/store/i18n"
 import { emptyTrash, loadAll, taskState } from "@/store/tasks"
 import { expandAll, hasActiveFilters, ui } from "@/store/ui"
 import { redo, undo } from "@/store/undo"
 
 import { useTasks } from "../useTasks"
+
+const { counts } = useTasks()
 
 const groupOptions: { value: GroupBy; key: string }[] = [
   { value: "none", key: "groupNone" },
@@ -25,7 +27,11 @@ const sortOptions: { value: SortBy; key: string }[] = [
   { value: "title", key: "sortTitle" },
 ]
 
-const { counts } = useTasks()
+const modes: { id: ViewMode; key: string }[] = [
+  { id: "list", key: "modeList" },
+  { id: "tree", key: "modeTree" },
+  { id: "board", key: "modeBoard" },
+]
 
 const filtered = computed(() => hasActiveFilters())
 
@@ -63,11 +69,10 @@ async function onEmptyTrash(): Promise<void> {
           {{ strings[option.key] || option.value }}
         </option>
       </select>
+      <button v-if="ui.mode === 'tree'" class="bt-btn bt-btn--ghost" @click="expandAll()">
+        {{ strings.treeExpandAll || 'Expand all' }}
+      </button>
     </template>
-
-    <button v-if="ui.mode === 'tree'" class="bt-btn bt-btn--ghost" @click="expandAll()">
-      {{ strings.treeExpandAll || 'Expand all' }}
-    </button>
 
     <span class="bt-toolbar__spacer" />
 
@@ -78,6 +83,19 @@ async function onEmptyTrash(): Promise<void> {
     >
       {{ strings.emptyTrash || 'Empty trash' }}
     </button>
+
+    <!-- 视图切换固定在内容区右上角 -->
+    <div class="bt-segment bt-toolbar__modes" :title="strings.modeTitle || 'View'">
+      <button
+        v-for="mode in modes"
+        :key="mode.id"
+        class="bt-segment__item bt-segment__item--center"
+        :class="{ 'bt-segment__item--on': ui.mode === mode.id }"
+        @click="ui.mode = mode.id"
+      >
+        {{ strings[mode.key] || mode.id }}
+      </button>
+    </div>
 
     <button class="bt-icon-btn" :title="strings.help || 'Shortcuts'" @click="ui.showHelp = !ui.showHelp">
       <span class="bt-glyph">?</span>

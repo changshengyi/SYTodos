@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.2.1
+
+- Moved the view switch (list / tree / board) from the sidebar to the top-right of the content toolbar.
+- Moved the time views (today / next 7 days / all / trash) out of the sidebar and into the filter bar below the search box, alongside the status chips.
+- Sidebar now only holds the data scope and the settings entry.
+- Renamed the "note tasks" scope to "SiYuan tasks" to match how the data is actually stored.
+
 ## 0.2.0
 
 - **Two data spaces**: note tasks (`- [ ]` blocks anywhere) and an unlimited-depth workspace tree stored in a dedicated document.

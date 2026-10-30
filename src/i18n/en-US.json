@@ -35,9 +35,10 @@
 
   "scopeTitle": "Scope",
   "scopeAll": "All tasks",
-  "scopeNote": "Note tasks",
+  "scopeNote": "SiYuan tasks",
   "scopeSpace": "Workspace tree",
 
+  "timeTitle": "Time",
   "modeTitle": "View",
   "modeList": "List",
   "modeTree": "Tree",
@@ -124,7 +125,7 @@
   "spaceOpenDoc": "Open tree document",
 
   "settingTitle": "Settings",
-  "settingDefaultDoc": "Where note tasks go",
+  "settingDefaultDoc": "Where SiYuan tasks go",
   "settingDefaultDocHint": "Leave empty to use today's daily note automatically.",
   "settingPickDoc": "Pick document",
   "settingDefaultView": "Default time view",
