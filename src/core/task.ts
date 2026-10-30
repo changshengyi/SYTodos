@@ -1,17 +1,19 @@
 import type { TaskBlockRow } from "@/api/kernel"
 
-import type { Priority, Task } from "./types"
+import type { Priority, Task, TaskStatus } from "./types"
 import { parseIAL, pickAttr } from "./ial"
 
 /** 本插件使用的块属性名（统一 `custom-bt-` 前缀） */
 export const ATTR = {
   priority: "custom-bt-p",
+  status: "custom-bt-status",
   due: "custom-bt-due",
   repeat: "custom-bt-repeat",
   category: "custom-bt-cat",
   note: "custom-bt-note",
   sort: "custom-bt-sort",
   trash: "custom-bt-trash",
+  space: "custom-bt-space",
 } as const
 
 const MARKER_RE = /^\s*(?:[-*+])\s*\[([ xX])\]\s*([\s\S]*)$/
@@ -62,6 +64,26 @@ export function toAttrPriority(priority: Priority): string {
   return `P${priority}`
 }
 
+/** 属性里保存的状态值：todo 用空值表示，减少无意义属性 */
+export function toAttrStatus(status: TaskStatus): string {
+  return status === "todo" || status === "done" ? "" : status
+}
+
+/**
+ * 状态是「块 markdown 的勾选态」与「属性」的组合：
+ * - `[x]` 一律视为已完成（与笔记原生行为保持一致）
+ * - 否则读 `custom-bt-status`，缺省为待办
+ */
+export function deriveStatus(done: boolean, attrStatus: string): TaskStatus {
+  if (done) {
+    return "done"
+  }
+  if (attrStatus === "doing" || attrStatus === "archived") {
+    return attrStatus
+  }
+  return "todo"
+}
+
 /** 把一条 SQL 行转换成 Task */
 export function rowToTask(row: TaskBlockRow, attrsInput?: Record<string, string>): Task {
   const attrs = attrsInput ?? parseIAL(row.ial ?? "")
@@ -74,7 +96,7 @@ export function rowToTask(row: TaskBlockRow, attrsInput?: Record<string, string>
     box: row.box ?? "",
     hpath: row.hpath ?? "",
     title,
-    done,
+    status: deriveStatus(done, pickAttr(attrs, ATTR.status)),
     priority: normalizePriority(pickAttr(attrs, ATTR.priority)),
     due: pickAttr(attrs, ATTR.due),
     repeat: pickAttr(attrs, ATTR.repeat),
@@ -82,7 +104,16 @@ export function rowToTask(row: TaskBlockRow, attrsInput?: Record<string, string>
     note: pickAttr(attrs, ATTR.note),
     sort: Number.isFinite(sort) ? sort : Number.MAX_SAFE_INTEGER,
     trashed: pickAttr(attrs, ATTR.trash) !== "",
+    inSpace: false,
     created: row.created ?? "",
     updated: row.updated ?? "",
   }
+}
+
+export function isActive(status: TaskStatus): boolean {
+  return status === "todo" || status === "doing"
+}
+
+export function isCompleted(task: Task): boolean {
+  return task.status === "done"
 }

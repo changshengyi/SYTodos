@@ -2,14 +2,14 @@ import { reactive } from "vue"
 
 import * as kernel from "@/api/kernel"
 import type { TaskBlockRow } from "@/api/kernel"
-import { nextOccurrence, today } from "@/core/date"
+import { addDays, nextOccurrence, today } from "@/core/date"
 import { collectAncestors, collectDescendants } from "@/core/filter"
-import { ATTR, buildMarkdown, rowToTask, toAttrPriority } from "@/core/task"
-import type { Priority, Task } from "@/core/types"
+import { ATTR, buildMarkdown, rowToTask, toAttrPriority, toAttrStatus } from "@/core/task"
+import type { Priority, Task, TaskStatus } from "@/core/types"
 import { pushUndo } from "@/store/undo"
 
 import { t } from "./i18n"
-import { settings } from "./settings"
+import { persistSettings, settings } from "./settings"
 
 /** 待办索引。事实源是思源笔记里的任务列表块，这里只是随时可重建的内存投影。 */
 export const taskState = reactive({
@@ -33,17 +33,30 @@ export function bumpVersion(): void {
   taskState.version++
 }
 
+/** 标记任务是否属于独立空间 */
+function decorate(task: Task): Task {
+  task.inSpace = !!settings.spaceDocId && task.rootId === settings.spaceDocId
+  return task
+}
+
+/** 独立空间文档变化后重新标注归属 */
+export function redecorateAll(): void {
+  for (const task of taskState.tasks.values()) {
+    decorate(task)
+  }
+  bumpVersion()
+}
+
 /* ------------------------------------------------------------------ *
  * 读取
  * ------------------------------------------------------------------ */
 
 let dailyNoteCache: { key: string; id: string } | undefined
 
-/** 并发受控地补齐旧内核缺失的属性 */
 async function hydrate(rows: TaskBlockRow[], hasIal: boolean): Promise<void> {
   if (hasIal) {
     for (const row of rows) {
-      taskState.tasks.set(row.id, rowToTask(row))
+      taskState.tasks.set(row.id, decorate(rowToTask(row)))
     }
     return
   }
@@ -59,7 +72,7 @@ async function hydrate(rows: TaskBlockRow[], hasIal: boolean): Promise<void> {
       } catch {
         attrs = {}
       }
-      taskState.tasks.set(row.id, rowToTask(row, attrs))
+      taskState.tasks.set(row.id, decorate(rowToTask(row, attrs)))
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, rows.length) }, worker))
@@ -70,6 +83,7 @@ export async function loadAll(): Promise<void> {
   taskState.error = ""
   try {
     const { rows, hasIal } = await kernel.fetchTaskRows()
+    taskState.tasks.clear()
     await hydrate(rows, hasIal)
     taskState.loaded = true
     bumpVersion()
@@ -123,9 +137,11 @@ export async function syncIds(ids: string[]): Promise<void> {
     for (const row of rows) {
       seen.add(row.id)
       const existing = taskState.tasks.get(row.id)
-      // ial 列可能为空对象，这里退化为基础解析
-      const task = rowToTask(row)
-      taskState.tasks.set(row.id, existing ? { ...existing, ...task, sort: existing.sort } : task)
+      const fresh = rowToTask(row)
+      taskState.tasks.set(
+        row.id,
+        decorate(existing ? { ...existing, ...fresh, sort: existing.sort, note: fresh.note } : fresh),
+      )
     }
     for (const id of ids) {
       if (!seen.has(id)) {
@@ -151,6 +167,7 @@ function nowStamp(): string {
 function attrValues(task: Task): Record<string, string> {
   return {
     [ATTR.priority]: task.priority === 3 ? "" : toAttrPriority(task.priority),
+    [ATTR.status]: toAttrStatus(task.status),
     [ATTR.due]: task.due,
     [ATTR.repeat]: task.repeat,
     [ATTR.category]: task.category,
@@ -174,8 +191,10 @@ function diffAttrs(before: Task, after: Task): Record<string, string> {
 
 async function writeTask(task: Task, before?: Task): Promise<void> {
   const previous = before ?? task
-  if (task.title !== previous.title || task.done !== previous.done) {
-    await kernel.updateBlockMarkdown(task.id, buildMarkdown(task.title, task.done))
+  const wasDone = previous.status === "done"
+  const isDone = task.status === "done"
+  if (task.title !== previous.title || wasDone !== isDone) {
+    await kernel.updateBlockMarkdown(task.id, buildMarkdown(task.title, isDone))
   }
   const attrs = diffAttrs(previous, task)
   if (Object.keys(attrs).length > 0) {
@@ -185,7 +204,6 @@ async function writeTask(task: Task, before?: Task): Promise<void> {
 
 interface PatchOptions {
   label: string
-  /** 是否允许撤销 */
   undoable?: boolean
 }
 
@@ -234,7 +252,7 @@ async function patch(id: string, changes: Partial<Task>, options: PatchOptions):
 }
 
 /* ------------------------------------------------------------------ *
- * 具体操作
+ * 字段写入
  * ------------------------------------------------------------------ */
 
 export function setTitle(id: string, title: string): Promise<void> {
@@ -261,31 +279,40 @@ export function setPriority(id: string, priority: Priority): Promise<void> {
   return patch(id, { priority }, { label: "priority" })
 }
 
+export function setStatus(id: string, status: TaskStatus): Promise<void> {
+  return patch(id, { status }, { label: "status" })
+}
+
+/**
+ * 切换完成态：
+ * - 勾选时级联完成所有子孙
+ * - 取消勾选时把祖先恢复为未完成
+ * - 开启「重复推进」时，完成重复任务改为把截止日期推到下一次
+ */
 export async function toggleDone(id: string): Promise<void> {
   const task = taskState.tasks.get(id)
   if (!task) {
     return
   }
 
-  if (!task.done && task.repeat && settings.repeatAdvance) {
+  const becomesDone = task.status !== "done"
+
+  if (becomesDone && task.repeat && settings.repeatAdvance) {
     const next = nextOccurrence(task.due || today(), task.repeat)
-    await patch(id, { due: next, done: false }, { label: "repeat-next" })
+    await patch(id, { due: next, status: "todo" }, { label: "repeat-next" })
     return
   }
 
-  const nextDone = !task.done
   const targets: string[] = [id]
-  if (nextDone) {
-    // 完成父任务时级联完成所有子孙
+  if (becomesDone) {
     for (const child of collectDescendants(id, taskState.tasks)) {
-      if (!child.done) {
+      if (child.status !== "done" && child.status !== "archived") {
         targets.push(child.id)
       }
     }
   } else {
-    // 取消某个子任务时，把祖先重新标记为未完成
     for (const parent of collectAncestors(id, taskState.tasks)) {
-      if (parent.done) {
+      if (parent.status === "done") {
         targets.push(parent.id)
       }
     }
@@ -299,7 +326,7 @@ export async function toggleDone(id: string): Promise<void> {
   for (const snapshot of snapshots) {
     const live = taskState.tasks.get(snapshot.id)
     if (live) {
-      live.done = nextDone
+      live.status = becomesDone ? "done" : "todo"
       live.updated = nowStamp()
     }
   }
@@ -307,29 +334,36 @@ export async function toggleDone(id: string): Promise<void> {
 
   try {
     for (const snapshot of snapshots) {
-      const updated = taskState.tasks.get(snapshot.id) as Task
-      await kernel.updateBlockMarkdown(updated.id, buildMarkdown(updated.title, nextDone))
+      const live = taskState.tasks.get(snapshot.id) as Task
+      await kernel.updateBlockMarkdown(live.id, buildMarkdown(live.title, becomesDone))
+      if (!becomesDone) {
+        await kernel.setBlockAttrs(live.id, { [ATTR.status]: "" })
+      }
     }
     pushUndo({
-      label: nextDone ? "complete" : "reopen",
+      label: becomesDone ? "complete" : "reopen",
       undo: async () => {
         for (const snapshot of snapshots) {
           const live = taskState.tasks.get(snapshot.id)
           if (live) {
-            live.done = snapshot.done
-            bumpVersion()
+            live.status = snapshot.status
           }
-          await kernel.updateBlockMarkdown(snapshot.id, buildMarkdown(snapshot.title, snapshot.done))
+          await kernel.updateBlockMarkdown(
+            snapshot.id,
+            buildMarkdown(snapshot.title, snapshot.status === "done"),
+          )
+          await kernel.setBlockAttrs(snapshot.id, { [ATTR.status]: toAttrStatus(snapshot.status) })
         }
+        bumpVersion()
       },
       redo: async () => {
         for (const snapshot of snapshots) {
-          await kernel.updateBlockMarkdown(snapshot.id, buildMarkdown(snapshot.title, nextDone))
+          await kernel.updateBlockMarkdown(snapshot.id, buildMarkdown(snapshot.title, becomesDone))
         }
         for (const snapshot of snapshots) {
           const live = taskState.tasks.get(snapshot.id)
           if (live) {
-            live.done = nextDone
+            live.status = becomesDone ? "done" : "todo"
           }
         }
         bumpVersion()
@@ -339,7 +373,7 @@ export async function toggleDone(id: string): Promise<void> {
     for (const snapshot of snapshots) {
       const live = taskState.tasks.get(snapshot.id)
       if (live) {
-        live.done = snapshot.done
+        live.status = snapshot.status
       }
     }
     bumpVersion()
@@ -379,6 +413,10 @@ export async function emptyTrash(): Promise<void> {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * 文档解析
+ * ------------------------------------------------------------------ */
+
 async function resolveTargetDoc(): Promise<string> {
   if (settings.defaultDocId) {
     return settings.defaultDocId
@@ -396,6 +434,23 @@ async function resolveTargetDoc(): Promise<string> {
   return id
 }
 
+/** 获取（必要时创建）独立空间任务树所在文档 */
+export async function ensureSpaceDoc(): Promise<string> {
+  if (settings.spaceDocId && (await kernel.docExists(settings.spaceDocId))) {
+    return settings.spaceDocId
+  }
+  const box = settings.spaceBox || settings.defaultBox || (await kernel.listNotebooks())[0]?.id || ""
+  if (!box) {
+    throw new Error(t("noNotebook", "没有可用的笔记本"))
+  }
+  const id = await kernel.createDocWithMd(box, "/BlockTodo 任务树", "")
+  settings.spaceDocId = id
+  settings.spaceBox = box
+  persistSettings()
+  redecorateAll()
+  return id
+}
+
 async function docMeta(docId: string): Promise<{ box: string; hpath: string }> {
   try {
     const rows = await kernel.sql<{ box: string; hpath: string }[]>(
@@ -407,14 +462,23 @@ async function docMeta(docId: string): Promise<{ box: string; hpath: string }> {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * 创建 / 移动
+ * ------------------------------------------------------------------ */
+
 export interface CreateInput {
   title: string
   priority?: Priority
+  status?: TaskStatus
   due?: string
   repeat?: string
   category?: string
+  /** 父任务块 ID；留空表示创建到 scope 对应文档的根层 */
   parentId?: string
+  /** 指定写入的文档 ID */
   docId?: string
+  /** 创建到哪个空间，默认笔记 */
+  scope?: "note" | "space"
 }
 
 export async function createTask(input: CreateInput): Promise<Task | undefined> {
@@ -422,19 +486,28 @@ export async function createTask(input: CreateInput): Promise<Task | undefined> 
   if (!title) {
     return undefined
   }
-  let docId = input.docId || input.parentId
-  if (!docId) {
-    docId = await resolveTargetDoc()
-  }
-  const parentId = input.parentId || docId
 
-  const known = new Set(taskState.tasks.keys())
-  const maxSort = listTasks().reduce((max, item) => Math.max(max, item.sort), 0)
+  let docId = input.docId
+  let parentId = input.parentId
 
-  let createdId: string | undefined
   try {
+    // 有父任务时直接挂到父任务下，文档由父任务决定
+    if (parentId) {
+      const parent = taskState.tasks.get(parentId)
+      docId = docId || parent?.rootId
+    }
+    if (!docId) {
+      docId = input.scope === "space" ? await ensureSpaceDoc() : await resolveTargetDoc()
+    }
+    if (!parentId) {
+      parentId = docId
+    }
+
+    const known = new Set(taskState.tasks.keys())
+    const maxSort = listTasks().reduce((max, item) => Math.max(max, item.sort), 0)
+
     const result = await kernel.appendBlock(parentId, buildMarkdown(title, false))
-    createdId = kernel.extractInsertedId(result)
+    let createdId = kernel.extractInsertedId(result)
     if (!createdId) {
       const rows = await kernel.sql<{ id: string }[]>(
         `SELECT id FROM blocks WHERE type = 'i' AND subtype = 't' AND root_id = '${docId.replace(/'/g, "''")}'`,
@@ -446,14 +519,14 @@ export async function createTask(input: CreateInput): Promise<Task | undefined> 
     }
 
     const meta = await docMeta(docId)
-    const task: Task = {
+    const task: Task = decorate({
       id: createdId,
       parentId,
       rootId: docId,
       box: meta.box,
       hpath: meta.hpath,
       title,
-      done: false,
+      status: input.status ?? "todo",
       priority: input.priority ?? 3,
       due: input.due ?? "",
       repeat: input.repeat ?? "",
@@ -461,12 +534,27 @@ export async function createTask(input: CreateInput): Promise<Task | undefined> 
       note: "",
       sort: maxSort + 1000,
       trashed: false,
+      inSpace: false,
       created: nowStamp(),
       updated: nowStamp(),
-    }
+    })
     taskState.tasks.set(task.id, task)
     bumpVersion()
-    await kernel.setBlockAttrs(task.id, diffAttrs({ ...task, priority: 3, sort: 0, due: "", repeat: "", category: "" }, task))
+
+    const needsAttrs =
+      task.status !== "todo" || task.priority !== 3 || !!task.due || !!task.repeat || !!task.category
+    if (needsAttrs) {
+      const blank: Task = {
+        ...task,
+        status: "todo",
+        priority: 3,
+        due: "",
+        repeat: "",
+        category: "",
+        sort: 0,
+      }
+      await kernel.setBlockAttrs(task.id, diffAttrs(blank, task))
+    }
     return task
   } catch (error) {
     await kernel.pushErrMsg(t("createFailed", "创建失败：") + (error instanceof Error ? error.message : String(error)))
@@ -527,22 +615,17 @@ export async function reorderSiblings(orderedIds: string[]): Promise<void> {
   }
 }
 
-/** 缩进为上一个同级的子任务（真实改变块层级） */
-export async function indentTask(id: string): Promise<void> {
+/** 把任务移动到新的父节点下（真实改变块层级），previousId 为空表示放到子节点首位 */
+export async function moveTask(id: string, newParentId: string, previousId = ""): Promise<void> {
   const task = taskState.tasks.get(id)
-  if (!task) {
-    return
-  }
-  const siblings = listTasks().filter((item) => item.id !== id && item.parentId === task.parentId)
-  const previous = siblings.sort((a, b) => a.sort - b.sort).filter((item) => item.sort < task.sort).pop()
-  if (!previous) {
+  if (!task || newParentId === task.id) {
     return
   }
   const before = { ...task }
-  task.parentId = previous.id
+  task.parentId = newParentId
   bumpVersion()
   try {
-    await kernel.moveBlock(id, "", previous.id)
+    await kernel.moveBlock(id, previousId, newParentId)
     scheduleSync([id])
   } catch (error) {
     Object.assign(task, before)
@@ -551,25 +634,41 @@ export async function indentTask(id: string): Promise<void> {
   }
 }
 
-/** 反缩进为父任务的下一段 */
+/** 缩进为上一个同级的子节点 */
+export async function indentTask(id: string): Promise<void> {
+  const task = taskState.tasks.get(id)
+  if (!task) {
+    return
+  }
+  const siblings = listTasks().filter((item) => item.id !== id && item.parentId === task.parentId)
+  const previous = siblings
+    .sort((a, b) => a.sort - b.sort)
+    .filter((item) => item.sort < task.sort)
+    .pop()
+  if (!previous) {
+    return
+  }
+  await moveTask(id, previous.id, "")
+}
+
+/** 反缩进，成为父节点的下一个兄弟 */
 export async function outdentTask(id: string): Promise<void> {
   const task = taskState.tasks.get(id)
-  if (!task || !task.parentId) {
+  if (!task) {
     return
   }
   const parent = taskState.tasks.get(task.parentId)
   if (!parent) {
     return
   }
-  const before = { ...task }
-  task.parentId = parent.parentId
-  bumpVersion()
-  try {
-    await kernel.moveBlock(id, parent.id, parent.parentId || task.rootId)
-    scheduleSync([id])
-  } catch (error) {
-    Object.assign(task, before)
-    bumpVersion()
-    await kernel.pushErrMsg(t("moveFailed", "移动失败：") + (error instanceof Error ? error.message : String(error)))
+  await moveTask(id, parent.parentId || parent.rootId || task.rootId, parent.id)
+}
+
+/** 快捷：把任务顺延到下一天 */
+export function postponeOneDay(id: string): Promise<void> {
+  const task = taskState.tasks.get(id)
+  if (!task) {
+    return Promise.resolve()
   }
+  return patch(id, { due: addDays(task.due || today(), 1) }, { label: "postpone" })
 }

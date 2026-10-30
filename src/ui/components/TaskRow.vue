@@ -3,19 +3,22 @@ import { computed, nextTick, ref, watch } from "vue"
 
 import { isOverdue, relativeDueLabel } from "@/core/date"
 import type { Task } from "@/core/types"
+import { childStatsMap } from "@/store/childStats"
 import { strings } from "@/store/i18n"
-import { taskIndex, taskState } from "@/store/tasks"
 
 const props = defineProps<{
   task: Task
   depth: number
   selected: boolean
   editing: boolean
+  hasChildren: boolean
+  collapsed: boolean
 }>()
 
 const emit = defineEmits<{
   (e: "select", event: MouseEvent): void
   (e: "toggle"): void
+  (e: "toggleCollapse"): void
   (e: "startEdit"): void
   (e: "commitTitle", title: string): void
   (e: "cyclePriority"): void
@@ -43,16 +46,25 @@ watch(
   { immediate: true },
 )
 
-const overdue = computed(() => isOverdue(props.task.due, props.task.done))
+const done = computed(() => props.task.status === "done")
+const overdue = computed(() => isOverdue(props.task.due, props.task.status !== "todo" && props.task.status !== "doing"))
 const dueLabel = computed(() => relativeDueLabel(props.task.due, strings))
-
-const subtasks = computed(() => {
-  void taskState.version
-  return Array.from(taskIndex().values()).filter((item) => item.parentId === props.task.id)
+const statusLabel = computed(() => {
+  if (props.task.status === "doing") {
+    return strings.statusDoing || "执行中"
+  }
+  if (props.task.status === "archived") {
+    return strings.statusArchived || "已归档"
+  }
+  return ""
 })
-const doneCount = computed(() => subtasks.value.filter((item) => item.done).length)
+
+const children = computed(() => childStatsMap.value.get(props.task.id))
 
 const shortPath = computed(() => {
+  if (props.task.inSpace) {
+    return strings.spaceTitle || "独立空间"
+  }
   const path = props.task.hpath || ""
   const parts = path.split("/").filter(Boolean)
   return parts.length > 2 ? `…/${parts.slice(-2).join("/")}` : path
@@ -75,10 +87,11 @@ function cancel(): void {
   <div
     class="bt-row"
     :class="[
-      `bt-row--depth${Math.min(depth, 3)}`,
+      `bt-row--depth${Math.min(depth, 4)}`,
       {
         'bt-row--selected': selected,
-        'bt-row--done': task.done,
+        'bt-row--done': done,
+        'bt-row--archived': task.status === 'archived',
         'bt-row--overdue': overdue,
       },
     ]"
@@ -91,9 +104,20 @@ function cancel(): void {
     @drop.prevent="emit('drop', task.id, $event)"
   >
     <button
+      v-if="hasChildren"
+      class="bt-caret"
+      :class="{ 'bt-caret--collapsed': collapsed }"
+      :title="collapsed ? strings.treeShow : strings.treeHide"
+      @click.stop="emit('toggleCollapse')"
+    >
+      <span class="bt-glyph">▾</span>
+    </button>
+    <span v-else class="bt-caret bt-caret--placeholder" />
+
+    <button
       class="bt-check"
-      :class="{ 'bt-check--on': task.done }"
-      :aria-label="task.done ? 'reopen' : 'complete'"
+      :class="{ 'bt-check--on': done }"
+      :aria-label="done ? 'reopen' : 'complete'"
       @click.stop="emit('toggle')"
     >
       <svg class="bt-check__icon" aria-hidden="true"><use xlink:href="#iconCheck" /></svg>
@@ -124,9 +148,12 @@ function cancel(): void {
       </div>
 
       <div class="bt-row__meta">
+        <span v-if="statusLabel" class="bt-chip bt-chip--status" :class="`bt-chip--${task.status}`">
+          {{ statusLabel }}
+        </span>
         <span v-if="task.due" class="bt-chip" :class="{ 'bt-chip--danger': overdue }">{{ dueLabel }}</span>
         <span v-if="task.repeat" class="bt-chip bt-chip--ghost" :title="strings.repeat || 'Repeat'">↻</span>
-        <span v-if="subtasks.length" class="bt-chip bt-chip--ghost">{{ doneCount }}/{{ subtasks.length }}</span>
+        <span v-if="children" class="bt-chip bt-chip--ghost">{{ children.done }}/{{ children.total }}</span>
         <span v-if="task.note" class="bt-chip bt-chip--ghost" :title="strings.note || 'Note'">≡</span>
         <span v-if="task.category" class="bt-chip bt-chip--cat">{{ task.category }}</span>
         <span class="bt-row__path" :title="task.hpath">{{ shortPath }}</span>

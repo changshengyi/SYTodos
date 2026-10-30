@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { nextTick, ref } from "vue"
+import { computed, nextTick, ref } from "vue"
 
 import { today } from "@/core/date"
 import type { Priority } from "@/core/types"
 import { PRIORITIES } from "@/core/types"
 import { strings } from "@/store/i18n"
 import { createTask } from "@/store/tasks"
+import { ui } from "@/store/ui"
 
 const draft = ref("")
 const inputEl = ref<HTMLInputElement | null>(null)
@@ -13,6 +14,9 @@ const busy = ref(false)
 const expanded = ref(false)
 const withToday = ref(false)
 const priority = ref<Priority>(3)
+
+/** 独立空间模式下，新任务创建为空间根节点 */
+const inSpace = computed(() => ui.scope === "space")
 
 async function submit(): Promise<void> {
   const title = draft.value.trim()
@@ -25,6 +29,7 @@ async function submit(): Promise<void> {
       title,
       priority: priority.value,
       due: withToday.value ? today() : "",
+      scope: inSpace.value ? "space" : "note",
     })
     draft.value = ""
     withToday.value = false
@@ -55,6 +60,7 @@ defineExpose({ focus })
         @keydown.enter.prevent="submit"
         @focus="expanded = true"
       />
+      <span v-if="inSpace" class="bt-quick__scope">{{ strings.spaceTitle || 'Workspace' }}</span>
       <button class="bt-btn bt-btn--ghost" :disabled="busy" @click="submit">
         {{ strings.addTitle || "Add" }}
       </button>

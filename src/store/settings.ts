@@ -16,8 +16,17 @@ export interface StorageHost {
 export const STORAGE_HOST = Symbol("bt-storage-host")
 
 let saveTimer: number | undefined
+let boundHost: StorageHost | undefined
+
+/** 任何模块改动 settings 后都可以直接调用，无需持有宿主引用 */
+export function persistSettings(): void {
+  if (boundHost) {
+    queueSaveSettings(boundHost)
+  }
+}
 
 export async function loadSettings(host: StorageHost): Promise<void> {
+  boundHost = host
   try {
     const stored = (await host.loadData(STORAGE_KEY)) as Partial<PluginSettings> | undefined
     if (stored && typeof stored === "object") {

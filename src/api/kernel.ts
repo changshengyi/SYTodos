@@ -100,6 +100,23 @@ export async function listNotebooks(): Promise<NotebookInfo[]> {
   return data?.notebooks ?? []
 }
 
+/** 判断文档是否仍然存在 */
+export async function docExists(docId: string): Promise<boolean> {
+  try {
+    const rows = await sql<{ id: string }[]>(
+      `SELECT id FROM blocks WHERE type = 'd' AND id = '${escapeLiteral(docId)}'`,
+    )
+    return Array.isArray(rows) && rows.length > 0
+  } catch {
+    return false
+  }
+}
+
+/** 在指定笔记本下创建文档，返回文档 ID */
+export async function createDocWithMd(notebook: string, path: string, markdown = ""): Promise<string> {
+  return post<string>("/api/filetree/createDocWithMd", { notebook, path, markdown })
+}
+
 /** 获取（不存在则创建）当天日记文档 ID */
 export async function createDailyNote(box: string): Promise<string> {
   const data = await post<{ id: string }>("/api/filetree/createDailyNote", { notebook: box })

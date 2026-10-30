@@ -1,33 +1,26 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 
-import type { GroupBy, Priority, SortBy } from "@/core/types"
+import type { Priority } from "@/core/types"
 import { openInNote } from "@/store/host"
 import { strings } from "@/store/i18n"
 import {
   createTask,
-  indentTask,
-  loadAll,
-  outdentTask,
   reorderSiblings,
   setPriority,
   setTitle,
   taskIndex,
-  taskState,
   toggleDone,
   trashTask,
 } from "@/store/tasks"
-import { clearChecked, toggleChecked, ui } from "@/store/ui"
-import { redo, undo } from "@/store/undo"
+import { clearChecked, toggleChecked, toggleCollapsed, ui } from "@/store/ui"
 
 import TaskRow from "./TaskRow.vue"
-import QuickAdd from "./QuickAdd.vue"
 import { useTasks } from "../useTasks"
 
 const { rows, flatVisibleIds } = useTasks()
 
 const scroller = ref<HTMLElement | null>(null)
-const quickAdd = ref<{ focus: () => void } | null>(null)
 const scrollTop = ref(0)
 const viewport = ref(600)
 const dragId = ref("")
@@ -41,22 +34,6 @@ const endIndex = computed(() =>
 )
 const offsetY = computed(() => startIndex.value * rowHeight.value)
 const windowRows = computed(() => rows.value.slice(startIndex.value, endIndex.value))
-
-const groupOptions: { value: GroupBy; key: string }[] = [
-  { value: "none", key: "groupNone" },
-  { value: "due", key: "groupDue" },
-  { value: "priority", key: "groupPriority" },
-  { value: "category", key: "groupCategory" },
-  { value: "doc", key: "groupDoc" },
-]
-
-const sortOptions: { value: SortBy; key: string }[] = [
-  { value: "manual", key: "sortManual" },
-  { value: "due", key: "sortDue" },
-  { value: "priority", key: "sortPriority" },
-  { value: "created", key: "sortCreated" },
-  { value: "title", key: "sortTitle" },
-]
 
 let rafId = 0
 function onScroll(): void {
@@ -94,7 +71,6 @@ function taskOf(id: string) {
   return taskIndex().get(id)
 }
 
-/** 模板里使用的非空取值：调用前已用 `v-else-if` 确认存在 */
 function rowTask(id: string): NonNullable<ReturnType<typeof taskOf>> {
   return taskOf(id) as NonNullable<ReturnType<typeof taskOf>>
 }
@@ -112,17 +88,14 @@ function ensureVisible(id: string): void {
   }
 }
 
-function moveSelection(delta: number): void {
-  const ids = flatVisibleIds.value
-  if (ids.length === 0) {
-    return
-  }
-  const current = ids.indexOf(ui.selectedId)
-  const next = current < 0 ? 0 : Math.min(ids.length - 1, Math.max(0, current + delta))
-  ui.selectedId = ids[next]
-  ui.editingId = ""
-  ensureVisible(ui.selectedId)
-}
+watch(
+  () => ui.selectedId,
+  (id) => {
+    if (id) {
+      ensureVisible(id)
+    }
+  },
+)
 
 function onSelect(taskId: string, event: MouseEvent): void {
   if (event.metaKey || event.ctrlKey) {
@@ -140,12 +113,12 @@ function cyclePriority(id: string): void {
   if (!task) {
     return
   }
-  const next = ((task.priority + 3) % 4) as Priority
-  void setPriority(id, next)
+  void setPriority(id, ((task.priority + 3) % 4) as Priority)
 }
 
 async function addSubtask(id: string): Promise<void> {
-  await createTask({ title: "", parentId: id })
+  const parent = taskOf(id)
+  await createTask({ title: "", parentId: id, scope: parent?.inSpace ? "space" : "note" })
   ui.selectedId = id
 }
 
@@ -162,9 +135,6 @@ function onDragOver(_id: string, event: DragEvent): void {
     return
   }
   event.preventDefault()
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = "move"
-  }
 }
 
 function onDrop(id: string): void {
@@ -181,125 +151,10 @@ function onDrop(id: string): void {
   order.splice(at, 0, source)
   void reorderSiblings(order)
 }
-
-function currentlySelected(): string[] {
-  if (ui.checked.size > 0) {
-    return Array.from(ui.checked)
-  }
-  return ui.selectedId ? [ui.selectedId] : []
-}
-
-async function onKeydown(event: KeyboardEvent): Promise<void> {
-  const target = event.target as HTMLElement | null
-  if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
-    return
-  }
-
-  const mod = event.metaKey || event.ctrlKey
-  if (mod && event.key.toLowerCase() === "z") {
-    event.preventDefault()
-    await (event.shiftKey ? redo() : undo())
-    return
-  }
-
-  switch (event.key) {
-    case "ArrowDown":
-      event.preventDefault()
-      moveSelection(1)
-      break
-    case "ArrowUp":
-      event.preventDefault()
-      moveSelection(-1)
-      break
-    case "Enter":
-      if (ui.selectedId) {
-        event.preventDefault()
-        ui.editingId = ui.selectedId
-      }
-      break
-    case " ":
-      event.preventDefault()
-      for (const id of currentlySelected()) {
-        await toggleDone(id)
-      }
-      break
-    case "Delete":
-    case "Backspace":
-      event.preventDefault()
-      for (const id of currentlySelected()) {
-        await trashTask(id)
-      }
-      clearChecked()
-      break
-    case "Tab":
-      if (ui.selectedId) {
-        event.preventDefault()
-        await (event.shiftKey ? outdentTask(ui.selectedId) : indentTask(ui.selectedId))
-      }
-      break
-    case "n":
-    case "N":
-      event.preventDefault()
-      quickAdd.value?.focus()
-      break
-    case "r":
-    case "R":
-      event.preventDefault()
-      await loadAll()
-      break
-    case "Escape":
-      ui.editingId = ""
-      clearChecked()
-      break
-    default:
-      break
-  }
-}
 </script>
 
 <template>
-  <section class="bt-main" tabindex="0" @keydown="onKeydown">
-    <header class="bt-toolbar">
-      <div class="bt-toolbar__search">
-        <svg class="bt-toolbar__icon" aria-hidden="true"><use xlink:href="#iconSearch" /></svg>
-        <input v-model="ui.query" class="bt-toolbar__input" :placeholder="strings.search || 'Search'" />
-      </div>
-
-      <select v-model="ui.groupBy" class="bt-select" :title="strings.groupByLabel || 'Group'">
-        <option v-for="option in groupOptions" :key="option.value" :value="option.value">
-          {{ strings[option.key] || option.value }}
-        </option>
-      </select>
-
-      <select v-model="ui.sortBy" class="bt-select" :title="strings.sortByLabel || 'Sort'">
-        <option v-for="option in sortOptions" :key="option.value" :value="option.value">
-          {{ strings[option.key] || option.value }}
-        </option>
-      </select>
-
-      <span class="bt-toolbar__spacer" />
-
-      <button class="bt-icon-btn" :title="strings.help || 'Shortcuts'" @click="ui.showHelp = !ui.showHelp">
-        <span class="bt-glyph">?</span>
-      </button>
-      <button class="bt-icon-btn" :title="strings.undo || 'Undo'" @click="undo()">
-        <span class="bt-glyph">↶</span>
-      </button>
-      <button class="bt-icon-btn" :title="strings.redo || 'Redo'" @click="redo()">
-        <span class="bt-glyph">↷</span>
-      </button>
-      <button
-        class="bt-icon-btn"
-        :title="strings.refresh || 'Refresh'"
-        :disabled="taskState.loading"
-        @click="loadAll()"
-      >
-        <svg aria-hidden="true"><use xlink:href="#iconRefresh" /></svg>
-      </button>
-    </header>
-
-    <QuickAdd ref="quickAdd" />
-
+  <div class="bt-view">
     <div v-if="ui.checked.size > 0" class="bt-selbar">
       <span>{{ (strings.selectedCount || '{n} selected').replace('{n}', String(ui.checked.size)) }}</span>
       <button class="bt-btn bt-btn--ghost" @click="clearChecked()">{{ strings.closeDetail || 'Close' }}</button>
@@ -326,8 +181,11 @@ async function onKeydown(event: KeyboardEvent): Promise<void> {
               :depth="row.depth"
               :selected="ui.selectedId === row.id"
               :editing="ui.editingId === row.id"
+              :has-children="row.hasChildren"
+              :collapsed="row.collapsed"
               @select="onSelect(row.id, $event)"
               @toggle="toggleDone(row.id)"
+              @toggle-collapse="toggleCollapsed(row.id)"
               @start-edit="ui.editingId = row.id"
               @commit-title="(title) => { setTitle(row.id, title); ui.editingId = '' }"
               @cycle-priority="cyclePriority(row.id)"
@@ -342,5 +200,5 @@ async function onKeydown(event: KeyboardEvent): Promise<void> {
         </div>
       </div>
     </div>
-  </section>
+  </div>
 </template>

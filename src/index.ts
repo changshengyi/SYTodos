@@ -70,6 +70,7 @@ export default class BlockTodoPlugin extends Plugin {
 
     await loadSettings(this)
     ui.view = settings.defaultView
+    ui.mode = settings.defaultMode
     ui.groupBy = settings.defaultGroupBy
     ui.sortBy = settings.defaultSortBy
     queueSaveSettings(this)

@@ -58,9 +58,9 @@ export function diffDays(a: string, b: string): number {
   return Math.round((db.getTime() - da.getTime()) / MS_DAY)
 }
 
-/** 是否逾期（有日期、未完成、早于今天） */
-export function isOverdue(due: string, done: boolean): boolean {
-  if (!due || done) {
+/** 是否逾期（有日期、仍未完成、早于今天） */
+export function isOverdue(due: string, finished: boolean): boolean {
+  if (!due || finished) {
     return false
   }
   return diffDays(due, today()) > 0

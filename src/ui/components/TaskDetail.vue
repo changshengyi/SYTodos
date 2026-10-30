@@ -2,7 +2,8 @@
 import { computed, ref, watch } from "vue"
 
 import { REPEAT_PRESETS } from "@/core/date"
-import type { Priority, Task } from "@/core/types"
+import type { Priority, Task, TaskStatus } from "@/core/types"
+import { STATUSES } from "@/core/types"
 import { openInNote } from "@/store/host"
 import { strings } from "@/store/i18n"
 import {
@@ -13,6 +14,7 @@ import {
   setNote,
   setPriority,
   setRepeat,
+  setStatus,
   setTitle,
   taskIndex,
   taskState,
@@ -75,6 +77,19 @@ watch(titleDraft, (value) => {
 
 const priorities: Priority[] = [0, 1, 2, 3]
 
+function statusLabel(status: TaskStatus): string {
+  switch (status) {
+    case "doing":
+      return strings.statusDoing || "Doing"
+    case "done":
+      return strings.statusDone || "Done"
+    case "archived":
+      return strings.statusArchived || "Archived"
+    default:
+      return strings.statusTodo || "To do"
+  }
+}
+
 function onDue(event: Event): void {
   const value = (event.target as HTMLInputElement).value
   if (ui.selectedId) {
@@ -86,7 +101,11 @@ function onDue(event: Event): void {
 <template>
   <aside v-if="task" class="bt-detail">
     <header class="bt-detail__head">
-      <button class="bt-check" :class="{ 'bt-check--on': task.done }" @click="toggleDone(task.id)">
+      <button
+        class="bt-check"
+        :class="{ 'bt-check--on': task.status === 'done' }"
+        @click="toggleDone(task.id)"
+      >
         <svg class="bt-check__icon" aria-hidden="true"><use xlink:href="#iconCheck" /></svg>
       </button>
       <input v-model="titleDraft" class="bt-detail__title" :placeholder="strings.taskTitle || 'Title'" />
@@ -96,6 +115,21 @@ function onDue(event: Event): void {
     </header>
 
     <dl class="bt-detail__fields">
+      <div class="bt-field">
+        <dt class="bt-field__label">{{ strings.statusTitle || 'Status' }}</dt>
+        <dd class="bt-field__value">
+          <button
+            v-for="status in STATUSES"
+            :key="status"
+            class="bt-status-chip"
+            :class="[`bt-status-chip--${status}`, { 'bt-status-chip--on': task.status === status }]"
+            @click="setStatus(task.id, status)"
+          >
+            {{ statusLabel(status) }}
+          </button>
+        </dd>
+      </div>
+
       <div class="bt-field">
         <dt class="bt-field__label">{{ strings.priority || 'Priority' }}</dt>
         <dd class="bt-field__value">
@@ -121,7 +155,11 @@ function onDue(event: Event): void {
       <div class="bt-field">
         <dt class="bt-field__label">{{ strings.repeat || 'Repeat' }}</dt>
         <dd class="bt-field__value">
-          <select class="bt-select" :value="task.repeat" @change="setRepeat(task.id, ($event.target as HTMLSelectElement).value)">
+          <select
+            class="bt-select"
+            :value="task.repeat"
+            @change="setRepeat(task.id, ($event.target as HTMLSelectElement).value)"
+          >
             <option v-for="option in REPEAT_PRESETS" :key="option.value" :value="option.value">
               {{ strings[option.key] || option.value }}
             </option>
@@ -155,7 +193,7 @@ function onDue(event: Event): void {
         <dt class="bt-field__label">{{ strings.groupDoc || 'Document' }}</dt>
         <dd class="bt-field__value">
           <button class="bt-btn bt-btn--link" :title="task.hpath" @click="openInNote(task.rootId, task.id)">
-            {{ task.hpath || task.rootId }}
+            {{ task.inSpace ? (strings.spaceTitle || 'Workspace') : task.hpath || task.rootId }}
           </button>
         </dd>
       </div>
