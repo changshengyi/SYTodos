@@ -368,7 +368,7 @@ Yes. Colours come from SiYuan's theme variables, so light, dark and third-party 
 **SY** carries two meanings, and they happen to coincide:
 
 - it is the abbreviation of **SiYuan**;
-- it is also our initials - **S** for my wife, **Y** for me.
+- it is also our initials - **S** for Song Lijuan, my wife, and **Y** for Yi Changsheng, me.
 
 **Todos** is just "to-dos".
 
