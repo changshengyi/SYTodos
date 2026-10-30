@@ -21,7 +21,7 @@ function label(key: string): string {
 <template>
   <aside class="bt-sidebar">
     <div class="bt-sidebar__head">
-      <span class="bt-sidebar__title">{{ strings.pluginName || "BlockTodo" }}</span>
+      <span class="bt-sidebar__title">{{ strings.pluginName || "SY Todo" }}</span>
       <span class="bt-sidebar__total">{{ (strings.totalTasks || "{n}").replace("{n}", String(total)) }}</span>
     </div>
 

@@ -443,7 +443,7 @@ export async function ensureSpaceDoc(): Promise<string> {
   if (!box) {
     throw new Error(t("noNotebook", "没有可用的笔记本"))
   }
-  const id = await kernel.createDocWithMd(box, "/BlockTodo 任务树", "")
+  const id = await kernel.createDocWithMd(box, "/SY 待办 任务树", "")
   settings.spaceDocId = id
   settings.spaceBox = box
   persistSettings()

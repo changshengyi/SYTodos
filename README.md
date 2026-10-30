@@ -1,4 +1,4 @@
-# BlockTodo
+# SY Todo
 
 **English** | [简体中文](./README_zh_CN.md)
 
@@ -9,7 +9,7 @@
 | Space | Meaning |
 |---|---|
 | **SiYuan tasks** | Every `- [ ]` task-list block you wrote anywhere. Aggregated automatically; editing one side updates the other. |
-| **Workspace tree** | An **unlimited-depth** task tree stored in a dedicated document the plugin creates for you, independent of your notes. |
+| **Workspace tree** | An **unlimited-depth** task tree stored in a dedicated document (`SY 待办 任务树`) the plugin creates for you, independent of your notes. |
 
 Both live as real SiYuan blocks: uninstalling the plugin never loses a task. Extension fields (priority, status, due date, repeat, category, note) live in block attributes, never polluting the markdown body.
 

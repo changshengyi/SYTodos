@@ -1,5 +1,5 @@
 {
-  "pluginName": "BlockTodo",
+  "pluginName": "SY Todo",
   "openTodo": "Open BlockTodo",
   "settings": "Settings",
   "back": "Back",
@@ -120,7 +120,7 @@
   "spaceHint": "The workspace tree is an unlimited-depth task tree stored in one dedicated document, independent of your notes.",
   "spaceCreate": "Initialize workspace",
   "spaceDoc": "Tree document",
-  "spaceDocHint": "Leave empty and the plugin creates a \"BlockTodo 任务树\" document for you.",
+  "spaceDocHint": "Leave empty and the plugin creates a \"SY 待办 任务树\" document for you.",
   "spaceRegenerate": "Recreate",
   "spaceOpenDoc": "Open tree document",
 
@@ -147,5 +147,5 @@
   "noNotebook": "No notebook available",
 
   "aboutTitle": "About",
-  "aboutBody": "BlockTodo stores every task as a real task-list block in your notes - one source of truth, many views."
+  "aboutBody": "SY Todo stores every task as a real task-list block in your notes - one source of truth, many views."
 }

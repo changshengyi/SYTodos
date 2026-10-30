@@ -45,7 +45,7 @@ function collectIds(data: unknown): string[] {
   return Array.from(ids)
 }
 
-export default class BlockTodoPlugin extends Plugin {
+export default class SyTodoPlugin extends Plugin {
   private roots = new Map<HTMLElement, ReturnType<typeof createApp>>()
 
   override async onload(): Promise<void> {
@@ -88,7 +88,7 @@ export default class BlockTodoPlugin extends Plugin {
 
     this.addTopBar({
       icon: TOP_BAR_ICON,
-      title: strings.pluginName || "BlockTodo",
+      title: strings.pluginName || "SY Todo",
       callback: () => {
         void this.openTodoTab()
       },
@@ -130,7 +130,7 @@ export default class BlockTodoPlugin extends Plugin {
       custom: {
         id: this.name + TAB_TYPE,
         icon: TOP_BAR_ICON,
-        title: this.i18n.pluginName ?? "BlockTodo",
+        title: this.i18n.pluginName ?? "SY Todo",
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)

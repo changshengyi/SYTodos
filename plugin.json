@@ -1,8 +1,8 @@
 {
   "name": "siyuan-plugin-blocktodo",
-  "author": "chang",
-  "url": "https://github.com/chang/siyuan-plugin-blocktodo",
-  "version": "0.2.1",
+  "author": "yichangsheng",
+  "url": "https://github.com/yichangsheng/siyuan-plugin-blocktodo",
+  "version": "0.2.2",
   "minAppVersion": "3.0.0",
   "backends": [
     "windows",
@@ -21,8 +21,8 @@
     "desktop-window"
   ],
   "displayName": {
-    "default": "BlockTodo",
-    "zh-CN": "块待办"
+    "default": "SY Todo",
+    "zh-CN": "SY 待办"
   },
   "description": {
     "default": "A block-native todo manager for SiYuan: every task is a real task-list block in your notes, with P0-P3 priority, due dates, repeats, notes, virtualized lists and keyboard-first interaction.",

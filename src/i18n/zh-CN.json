@@ -1,5 +1,5 @@
 {
-  "pluginName": "块待办",
+  "pluginName": "SY 待办",
   "openTodo": "打开块待办",
   "settings": "设置",
   "back": "返回",
@@ -120,7 +120,7 @@
   "spaceHint": "独立空间是一棵不限层级的任务树，所有节点都保存在同一个文档里，与笔记互不干扰。",
   "spaceCreate": "初始化独立空间",
   "spaceDoc": "任务树所在文档",
-  "spaceDocHint": "留空表示由插件自动创建《BlockTodo 任务树》。",
+  "spaceDocHint": "留空表示由插件自动创建《SY 待办 任务树》。",
   "spaceRegenerate": "重新创建",
   "spaceOpenDoc": "打开任务树文档",
 
@@ -147,5 +147,5 @@
   "noNotebook": "没有可用的笔记本",
 
   "aboutTitle": "关于",
-  "aboutBody": "块待办把每个待办写成笔记里真实的任务列表块：只有一份数据，插件只是它的一个视图。"
+  "aboutBody": "SY 待办把每个待办写成笔记里真实的任务列表块：只有一份数据，插件只是它的一个视图。"
 }

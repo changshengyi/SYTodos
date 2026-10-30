@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.2.2
+
+- Renamed the plugin to **SY 待办** ( English: **SY Todo** ), matching the SiYuan abbreviation.
+- The workspace tree document is now created as《SY 待办 任务树》. Existing tree documents keep their original name and keep working.
+- Filled in author / repository fields.
+- Internal plugin id, storage keys and tab type are unchanged, so existing settings and open tabs are preserved.
+
 ## 0.2.1
 
 - Moved the view switch (list / tree / board) from the sidebar to the top-right of the content toolbar.
