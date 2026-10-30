@@ -368,7 +368,7 @@
 
 遇到问题或有想法，欢迎提 Issue：
 
-<https://github.com/yichangsheng/siyuan-plugin-blocktodo/issues>
+<https://github.com/changshengyi/SYTodos/issues>
 
 提的时候方便的话带上：思源版本、插件版本、复现步骤，以及一张截图。这样能修得更快。
 

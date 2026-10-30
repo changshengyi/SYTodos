@@ -434,16 +434,34 @@ async function resolveTargetDoc(): Promise<string> {
   return id
 }
 
+/** 独立空间任务树文档的默认标题 */
+export const SPACE_DOC_TITLE = "SY 待办 任务树"
+
 /** 获取（必要时创建）独立空间任务树所在文档 */
 export async function ensureSpaceDoc(): Promise<string> {
   if (settings.spaceDocId && (await kernel.docExists(settings.spaceDocId))) {
     return settings.spaceDocId
   }
+  // 重装或改插件 id 后配置会丢，先按标题找回已有的任务树，避免出现两棵树
+  try {
+    const rows = await kernel.sql<{ id: string }[]>(
+      `SELECT id FROM blocks WHERE type = 'd' AND content = '${SPACE_DOC_TITLE}' LIMIT 1`,
+    )
+    const found = rows?.[0]?.id
+    if (found) {
+      settings.spaceDocId = found
+      persistSettings()
+      redecorateAll()
+      return found
+    }
+  } catch {
+    // 查不到就继续走创建流程
+  }
   const box = settings.spaceBox || settings.defaultBox || (await kernel.listNotebooks())[0]?.id || ""
   if (!box) {
     throw new Error(t("noNotebook", "没有可用的笔记本"))
   }
-  const id = await kernel.createDocWithMd(box, "/SY 待办 任务树", "")
+  const id = await kernel.createDocWithMd(box, `/${SPACE_DOC_TITLE}`, "")
   settings.spaceDocId = id
   settings.spaceBox = box
   persistSettings()

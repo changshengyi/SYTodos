@@ -1,11 +1,11 @@
 {
-  "name": "siyuan-plugin-blocktodo",
-  "version": "0.2.2",
+  "name": "sytodos",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "description": "Block-native, high-performance todo management plugin for SiYuan Note",
   "license": "MIT",
-  "author": "yichangsheng",
+  "author": "changshengyi",
   "keywords": [
     "siyuan",
     "todo",

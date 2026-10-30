@@ -34,7 +34,7 @@ VITE_SIYUAN_WORKSPACE_PATH=D:/siyuan_data
 然后执行 `npm run dev`，构建产物会直接写入：
 
 ```
-{工作空间}/data/plugins/siyuan-plugin-blocktodo/
+{工作空间}/data/plugins/SYTodos/
 ```
 
 `dist/` 不要放在 `data/plugins/` 下——那里会被同步，卸载插件时目录会被整体删除。
@@ -70,5 +70,5 @@ src/
 1. 更新 `package.json` 与 `plugin.json` 的 `version`，在 `CHANGELOG.md` 写明用户可见的变更。
 2. `npm run release` 必须通过。
 3. 在 GitHub 创建 Release，Tag 与版本号一致（如 `0.2.2`），附上 `package.zip`。
-4. 首次上架：Fork [siyuan-note/bazaar](https://github.com/siyuan-note/bazaar)，在 `plugins.txt` 末尾加一行 `yichangsheng/siyuan-plugin-blocktodo`，提 PR 到 `main`。一个 PR 只加一个包。
+4. 首次上架：Fork [siyuan-note/bazaar](https://github.com/siyuan-note/bazaar)，在 `plugins.txt` 末尾加一行 `changshengyi/SYTodos`，提 PR 到 `main`。一个 PR 只加一个包。
 5. 之后每次发版只需在自己仓库发 Release，集市索引会在 1–3 小时内自动更新。

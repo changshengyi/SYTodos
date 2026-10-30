@@ -1,8 +1,8 @@
 {
-  "name": "siyuan-plugin-blocktodo",
-  "author": "yichangsheng",
-  "url": "https://github.com/yichangsheng/siyuan-plugin-blocktodo",
-  "version": "0.2.2",
+  "name": "SYTodos",
+  "author": "changshengyi",
+  "url": "https://github.com/changshengyi/SYTodos",
+  "version": "0.2.3",
   "minAppVersion": "3.0.0",
   "backends": [
     "windows",

@@ -366,7 +366,7 @@ Yes. Colours come from SiYuan's theme variables, so light, dark and third-party 
 
 Issues and ideas are welcome:
 
-<https://github.com/yichangsheng/siyuan-plugin-blocktodo/issues>
+<https://github.com/changshengyi/SYTodos/issues>
 
 Please include your SiYuan version, plugin version, steps to reproduce, and a screenshot if you can - it makes fixes much faster.
 

@@ -94,8 +94,10 @@ for (const field of ["name", "author", "url", "version", "minAppVersion", "displ
     problems.push(`plugin.json 缺少字段：${field}`)
   }
 }
-if (manifest.name !== JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).name) {
-  problems.push("plugin.json 的 name 必须与 package.json（以及 GitHub 仓库名）一致")
+// npm 包名不允许大写，因此这里按大小写不敏感比较；plugin.json 的 name 需与 GitHub 仓库名完全一致
+const pkgName = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).name
+if (manifest.name.toLowerCase() !== String(pkgName).toLowerCase()) {
+  problems.push(`plugin.json 的 name（${manifest.name}）必须与 package.json（${pkgName}）以及 GitHub 仓库名一致`)
 }
 if (!manifest.keywords?.length) {
   notes.push("建议补充 keywords，方便在集市被搜到")
