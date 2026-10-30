@@ -1,6 +1,6 @@
-# SY Todo
+# SYTodos
 
-**A to-do manager for SiYuan Note** | [简体中文](./README_zh_CN.md)
+**SY 待办** · a to-do manager for SiYuan Note | [简体中文](./README_zh_CN.md)
 
 ![Preview](preview.png)
 
@@ -28,6 +28,7 @@ Collect the `- [ ]` tasks scattered across your notebooks into one place, then w
 - [Settings](#settings)
 - [Where your data lives](#where-your-data-lives)
 - [FAQ](#faq)
+- [About the name](#about-the-name)
 - [Feedback](#feedback)
 
 ---
@@ -361,6 +362,17 @@ Yes. The UI follows SiYuan's language setting; Chinese and English are bundled.
 Yes. Colours come from SiYuan's theme variables, so light, dark and third-party themes all adapt automatically.
 
 ---
+
+## About the name
+
+**SY** carries two meanings, and they happen to coincide:
+
+- it is the abbreviation of **SiYuan**;
+- it is also our initials - **S** for my wife, **Y** for me.
+
+**Todos** is just "to-dos".
+
+So SYTodos reads both as "SiYuan's todos" and "our todos". Naming a tool we use every day after something we both recognise felt just right.
 
 ## Feedback
 

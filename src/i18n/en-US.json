@@ -1,5 +1,5 @@
 {
-  "pluginName": "SY Todo",
+  "pluginName": "SYTodos",
   "openTodo": "Open BlockTodo",
   "settings": "Settings",
   "back": "Back",
@@ -147,5 +147,5 @@
   "noNotebook": "No notebook available",
 
   "aboutTitle": "About",
-  "aboutBody": "SY Todo stores every task as a real task-list block in your notes - one source of truth, many views."
+  "aboutBody": "SYTodos stores every task as a real task-list block in your notes - one source of truth, many views."
 }

@@ -88,7 +88,7 @@ export default class SyTodoPlugin extends Plugin {
 
     this.addTopBar({
       icon: TOP_BAR_ICON,
-      title: strings.pluginName || "SY Todo",
+      title: strings.pluginName || "SYTodos",
       callback: () => {
         void this.openTodoTab()
       },
@@ -130,7 +130,7 @@ export default class SyTodoPlugin extends Plugin {
       custom: {
         id: this.name + TAB_TYPE,
         icon: TOP_BAR_ICON,
-        title: this.i18n.pluginName ?? "SY Todo",
+        title: this.i18n.pluginName ?? "SYTodos",
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
