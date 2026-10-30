@@ -1,40 +1,31 @@
-# Changelog
-
-All notable changes to this project are documented in this file.
+# 更新日志
 
 ## 0.2.2
 
-- Renamed the plugin to **SY 待办** ( English: **SY Todo** ), matching the SiYuan abbreviation.
-- The workspace tree document is now created as《SY 待办 任务树》. Existing tree documents keep their original name and keep working.
-- Filled in author / repository fields.
-- Internal plugin id, storage keys and tab type are unchanged, so existing settings and open tabs are preserved.
+- 插件更名为 **SY 待办**（英文名 **SY Todo**）。
+- 独立空间的任务树文档更名为《SY 待办 任务树》；已有的任务树文档继续照常使用，不需要迁移。
 
 ## 0.2.1
 
-- Moved the view switch (list / tree / board) from the sidebar to the top-right of the content toolbar.
-- Moved the time views (today / next 7 days / all / trash) out of the sidebar and into the filter bar below the search box, alongside the status chips.
-- Sidebar now only holds the data scope and the settings entry.
-- Renamed the "note tasks" scope to "SiYuan tasks" to match how the data is actually stored.
+- 列表 / 树形 / 看板 的切换移到内容区右上角，更容易找到。
+- 「今天 / 近七天 / 全部 / 回收站」和状态筛选一起放进搜索框下方，一次点到位。
+- 左侧边栏只保留数据范围和设置，界面更清爽。
+- 「笔记任务」更名为「SiYuan 任务」，更贴合它的实际含义。
 
 ## 0.2.0
 
-- **Two data spaces**: note tasks (`- [ ]` blocks anywhere) and an unlimited-depth workspace tree stored in a dedicated document.
-- **Four-state status model**: To do / Doing / Done / Archived, derived from the block checkbox plus `custom-bt-status`, so native ticking stays in sync.
-- **Three view modes**: list (virtualized, grouped), tree (collapsible, unlimited nesting, drag-to-reparent) and board (four status columns, drag between columns to change status).
-- **Advanced search**: status, priority, due, category and keyword filters that stack.
-- Sidebar reorganised into three axes: scope x view mode x time view.
-- Detail panel gained a status switcher; tree view gained a root-task creator.
-- Space membership is stored so the workspace tree survives document moves.
-- Performance: child-task statistics, grouping and sorting now share one cached pass per data version; collapsing a node no longer rescans the whole index.
+- 新增**独立空间**：一棵不限层级的任务树，与笔记互不打扰。
+- 新增**四种状态**：待办 / 执行中 / 已完成 / 已归档，并与笔记里的勾选保持同步。
+- 新增**看板视图**：四列状态，拖动卡片即可改变状态。
+- 新增**树形视图**：无限嵌套、折叠展开，拖到另一条任务上即可成为子任务。
+- 新增**高级筛选**：按状态、优先级、截止时间、分类组合筛选。
+- 任务详情面板可以直接切换状态。
 
 ## 0.1.0
 
-- Initial release.
-- Block-native storage: every task is a real SiYuan task-list block; extension data lives in `custom-bt-*` block attributes.
-- Views: Today, Next 7 days, All, Done, Trash, each with live counts.
-- Grouping by due date / priority / category / document, sorting by manual / due / priority / created / title.
-- P0-P3 priorities, due dates, repeat rules, categories, notes, subtasks with real block nesting.
-- Virtualized list rendering and incremental transaction-based sync instead of polling.
-- Keyboard-first interaction with an undo stack.
-- Settings panel with a real document picker.
-- Light/dark theme aware and narrow-screen layout.
+- 第一个版本。
+- 自动汇总全库的任务列表块，支持今天 / 近七天 / 全部 / 回收站。
+- 支持优先级、截止日期、重复任务、分类、备注、子任务。
+- 支持按日期、优先级、分类、文档分组与排序。
+- 键盘操作、撤销重做、回收站。
+- 跟随思源深浅色主题，适配窄屏。
