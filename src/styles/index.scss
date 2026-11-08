@@ -90,8 +90,7 @@ $bt-radius: 6px;
 }
 
 .bt-nav__icon,
-.bt-toolbar__icon,
-.bt-quick__icon {
+.bt-toolbar__icon {
   width: 14px;
   height: 14px;
   flex: 0 0 14px;
@@ -133,6 +132,14 @@ $bt-radius: 6px;
   min-width: 0;
   min-height: 0;
   outline: none;
+}
+
+.bt-empty__diag {
+  margin: 8px 0 0;
+  font-size: 11px;
+  opacity: 0.5;
+  line-height: 1.6;
+  word-break: break-all;
 }
 
 .bt-toolbar {
@@ -259,47 +266,197 @@ $bt-radius: 6px;
   color: var(--b3-theme-error);
 }
 
-/* ---------------- 快速添加 ---------------- */
+/* ---------------- 新建任务弹窗 ---------------- */
 
-.bt-quick {
-  padding: 10px 12px 6px;
+.bt-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.36);
+}
+
+.bt-modal__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(460px, 100%);
+  max-height: 100%;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 8px;
+  background: var(--b3-theme-background);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.bt-modal__panel--detail {
+  width: min(560px, 100%);
+}
+
+.bt-modal--confirm {
+  z-index: 40;
+}
+
+.bt-modal__panel--confirm {
+  width: min(400px, 100%);
+}
+
+.bt-confirm__message {
+  margin: 0;
+  color: var(--b3-theme-on-background);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.bt-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
   border-bottom: 1px solid var(--b3-border-color);
 }
 
-.bt-quick__row {
+.bt-modal__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bt-modal__space {
+  margin-left: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--b3-theme-background);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.bt-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  overflow: auto;
+}
+
+.bt-modal__foot {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--b3-border-color);
-  border-radius: $bt-radius;
-  background: var(--b3-theme-background);
+  padding: 10px 16px;
+  border-top: 1px solid var(--b3-border-color);
 }
 
-.bt-quick__input {
-  flex: 1 1 auto;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: inherit;
-  font-size: 14px;
+.bt-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--b3-theme-error, #d23f31);
+  background: var(--b3-card-error-background, var(--b3-theme-surface));
+  color: var(--b3-theme-error, #d23f31);
+  font-size: 12px;
+}
+
+.bt-error span {
+  flex: 1;
   min-width: 0;
 }
 
-.bt-quick__opts {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-top: 8px;
+.bt-form-error {
+  margin: 0;
+  color: var(--b3-theme-error, #d23f31);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
-.bt-quick__check {
-  display: inline-flex;
+.bt-row--checked {
+  box-shadow: inset 0 0 0 1px var(--b3-theme-primary);
+}
+
+.bt-modal__hint {
+  flex: 1 1 auto;
+  font-size: 11px;
+  opacity: 0.45;
+}
+
+.bt-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bt-form-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.bt-form-row__label {
+  flex: 0 0 56px;
+  padding-top: 5px;
+  font-size: 11px;
+  opacity: 0.6;
+  text-align: right;
+}
+
+.bt-form-row__control {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.bt-detail__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--b3-border-color);
+}
+
+.bt-detail__meta-label {
+  flex: 0 0 56px;
+  font-size: 11px;
+  opacity: 0.6;
+  text-align: right;
+}
+
+.bt-detail__meta-text {
   font-size: 12px;
   opacity: 0.7;
-  cursor: pointer;
+}
+
+.bt-detail__meta-value {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bt-detail__meta-hint {
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.bt-input--block {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bt-btn--primary {
+  border-color: transparent;
+  background: var(--b3-theme-primary);
+  color: #fff;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
 }
 
 /* ---------------- 列表 ---------------- */
@@ -344,8 +501,10 @@ $bt-radius: 6px;
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 28px;
+  /* 与任务行同高：窗口化按统一行高计算偏移，否则分组一多就会错位 */
+  height: $bt-row-height;
   padding: 0 12px;
+  box-sizing: border-box;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -353,6 +512,7 @@ $bt-radius: 6px;
   color: var(--b3-theme-primary);
   background: var(--b3-theme-surface);
   border-top: 1px solid var(--b3-border-color);
+  border-bottom: 1px solid var(--b3-border-color);
 }
 
 .bt-group__count {
@@ -365,7 +525,8 @@ $bt-radius: 6px;
   align-items: center;
   gap: 8px;
   height: $bt-row-height;
-  padding: 0 10px 0 12px;
+  /* 缩进由层级驱动，不限深度，也不会因为层数过多挤出可视区 */
+  padding: 0 10px 0 calc(12px + var(--bt-depth, 0) * 16px);
   box-sizing: border-box;
   border-bottom: 1px solid var(--b3-border-color);
   cursor: default;
@@ -387,18 +548,6 @@ $bt-radius: 6px;
 .bt-row--done .bt-row__title {
   text-decoration: line-through;
   opacity: 0.45;
-}
-
-.bt-row--depth1 {
-  padding-left: 26px;
-}
-
-.bt-row--depth2 {
-  padding-left: 42px;
-}
-
-.bt-row--depth3 {
-  padding-left: 58px;
 }
 
 .bt-row__body {
@@ -587,25 +736,6 @@ $bt-radius: 6px;
 
 /* ---------------- 详情面板 ---------------- */
 
-.bt-detail {
-  display: flex;
-  flex: 0 0 300px;
-  flex-direction: column;
-  width: 300px;
-  border-left: 1px solid var(--b3-border-color);
-  background: var(--b3-theme-surface);
-  overflow: auto;
-  box-sizing: border-box;
-}
-
-.bt-detail__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border-bottom: 1px solid var(--b3-border-color);
-}
-
 .bt-detail__title {
   flex: 1 1 auto;
   border: 0;
@@ -619,7 +749,7 @@ $bt-radius: 6px;
 
 .bt-detail__fields {
   margin: 0;
-  padding: 8px 10px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -659,12 +789,10 @@ $bt-radius: 6px;
   flex-wrap: wrap;
 }
 
-.bt-detail__foot {
-  margin-top: auto;
-  padding: 10px;
-  display: flex;
-  gap: 8px;
-  border-top: 1px solid var(--b3-border-color);
+.bt-field__value .bt-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 240px;
 }
 
 /* ---------------- 设置面板 ---------------- */
@@ -785,14 +913,61 @@ $bt-radius: 6px;
   opacity: 1;
 }
 
-.bt-dot--note {
-  background: var(--b3-theme-on-surface);
-  opacity: 0.55;
-}
-
-.bt-dot--space {
+.bt-dot--today {
   background: var(--b3-theme-secondary, #8e6bd6);
   opacity: 1;
+}
+
+.bt-dot--week {
+  background: var(--b3-theme-warning, #e0913a);
+  opacity: 1;
+}
+
+.bt-dot--trash {
+  background: var(--b3-theme-error);
+  opacity: 0.7;
+}
+
+.bt-dot--siyuan {
+  background: var(--b3-theme-primary);
+  opacity: 1;
+}
+
+.bt-dot--local {
+  background: var(--b3-theme-secondary, #8e6bd6);
+  opacity: 1;
+}
+
+/* 数据空间导航：两行文字（名称 + 说明），计数靠右 */
+
+.bt-nav__item--space {
+  align-items: flex-start;
+  padding: 8px;
+}
+
+.bt-nav__item--space .bt-dot {
+  margin-top: 5px;
+}
+
+.bt-nav__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bt-nav__body .bt-nav__label {
+  flex: 0 0 auto;
+}
+
+.bt-nav__hint {
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.3;
+  opacity: 0.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bt-segment {
@@ -867,8 +1042,8 @@ $bt-radius: 6px;
 .bt-filter {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 12px;
   border-bottom: 1px solid var(--b3-border-color);
   background: var(--b3-theme-surface);
 }
@@ -876,18 +1051,26 @@ $bt-radius: 6px;
 .bt-filter__row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .bt-filter__label {
+  flex: 0 0 52px;
   font-size: 11px;
   opacity: 0.6;
-  margin-right: 2px;
+  text-align: right;
 }
 
-.bt-filter__label--gap {
-  margin-left: 10px;
+.bt-filter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bt-filter__control {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 240px;
 }
 
 .bt-chip-filter {
@@ -983,12 +1166,27 @@ $bt-radius: 6px;
   opacity: 0.2;
 }
 
-.bt-row--depth4 {
-  padding-left: 74px;
-}
-
 .bt-row--archived {
   opacity: 0.6;
+}
+
+/* 为保持层级而被补进来的祖先：只是上下文，不是当前筛选结果 */
+.bt-row--muted {
+  opacity: 0.5;
+}
+
+/* 拖拽落点：上/下缘改变同级顺序，中部表示成为子任务 */
+.bt-row--drop-before {
+  box-shadow: inset 0 2px 0 var(--b3-theme-primary);
+}
+
+.bt-row--drop-after {
+  box-shadow: inset 0 -2px 0 var(--b3-theme-primary);
+}
+
+.bt-row--drop-inside {
+  background: var(--b3-theme-primary-lightest, var(--b3-theme-surface));
+  box-shadow: inset 0 0 0 1px var(--b3-theme-primary);
 }
 
 .bt-chip--status {
@@ -1048,25 +1246,6 @@ $bt-radius: 6px;
 }
 
 /* ---------------- 树形视图 ---------------- */
-
-.bt-tree-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--b3-border-color);
-}
-
-.bt-tree-head__input {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 28px;
-}
-
-.bt-tree-head__hint {
-  font-size: 11px;
-  opacity: 0.45;
-}
 
 .bt-list--static {
   overflow: auto;
@@ -1213,15 +1392,6 @@ $bt-radius: 6px;
   font-weight: 600;
 }
 
-.bt-quick__scope {
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 9px;
-  background: var(--b3-theme-surface);
-  color: var(--b3-theme-secondary, #8e6bd6);
-  white-space: nowrap;
-}
-
 /* ---------------- 窄屏适配 ---------------- */
 
 @media (max-width: 720px) {
@@ -1246,15 +1416,6 @@ $bt-radius: 6px;
   .bt-nav__item {
     width: auto;
     white-space: nowrap;
-  }
-
-  .bt-detail {
-    position: absolute;
-    inset: 0 0 0 auto;
-    width: 100%;
-    max-width: 100%;
-    z-index: 2;
-    box-shadow: 0 0 24px rgba(0, 0, 0, 0.18);
   }
 
   .bt-toolbar {

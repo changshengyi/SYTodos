@@ -1,8 +1,4 @@
-/**
- * 思源内核 HTTP API 薄封装。
- *
- * 只依赖同源 `fetch`（插件运行在思源前端页面里），不引入任何第三方请求库。
- */
+import type { TaskBlockRow } from "@/core/task"
 
 export interface ApiResponse<T> {
   code: number
@@ -10,83 +6,105 @@ export interface ApiResponse<T> {
   data: T
 }
 
+const REQUEST_TIMEOUT = 20_000
+const PAGE_SIZE = 500
+
 async function post<T>(url: string, body: Record<string, unknown> = {}): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${url}`)
-  }
-  const payload = (await response.json()) as ApiResponse<T>
-  if (payload && typeof payload === "object" && "code" in payload) {
-    if (payload.code !== 0) {
-      throw new Error(payload.msg || `request failed: ${url}`)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    if (!response.ok) throw new Error(`HTTP ${response.status} ${url}`)
+    const payload = (await response.json()) as ApiResponse<T>
+    if (!payload || typeof payload !== "object" || typeof payload.code !== "number") {
+      throw new Error(`内核响应格式错误：${url}`)
     }
+    if (payload.code !== 0) throw new Error(payload.msg || `内核请求失败：${url}`)
     return payload.data
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`内核请求超时：${url}`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
   }
-  return payload as T
 }
 
-/** 执行只读 SQL（`blocks` / `attributes` 等索引表） */
-export function sql<T = Record<string, string>[]>(stmt: string): Promise<T> {
-  return post<T>("/api/query/sql", { stmt })
+export function sql<T = Record<string, string>[]>(statement: string): Promise<T> {
+  return post<T>("/api/query/sql", { stmt: statement })
 }
 
-/** `blocks` 表里一条任务列表块记录 */
-export interface TaskBlockRow {
-  id: string
-  parent_id?: string
-  root_id?: string
-  box?: string
-  hpath?: string
-  content?: string
-  markdown?: string
-  created?: string
-  updated?: string
-  ial?: string
+export function flushTransaction(): Promise<null> {
+  return post<null>("/api/sqlite/flushTransaction")
 }
 
-const BLOCK_COLUMNS = "id, parent_id, root_id, box, hpath, content, markdown, created, updated"
-const BLOCK_WHERE = "type = 'i' AND subtype = 't'"
+const TASK_COLUMNS = `t.id, t.parent_id, t.root_id, t.box, t.hpath, t.content, t.markdown, t.created, t.updated,
+  p.type AS parent_type, p.subtype AS parent_subtype,
+  g.id AS container_parent_id, g.type AS container_parent_type, g.subtype AS container_parent_subtype`
+const TASK_FROM = "FROM blocks t LEFT JOIN blocks p ON p.id = t.parent_id LEFT JOIN blocks g ON g.id = p.parent_id"
+const TASK_WHERE = "t.type = 'i' AND t.subtype = 't'"
 
-/**
- * 取出全工作空间的任务列表块。
- *
- * 优先带上 `ial` 列（一次请求即可拿到全部块属性）；若内核版本不支持该列，
- * 自动降级为不带 `ial` 的查询，由调用方自行按需懒加载属性。
- */
-export async function fetchTaskRows(rootId?: string): Promise<{ rows: TaskBlockRow[]; hasIal: boolean }> {
-  const scope = rootId ? `${BLOCK_WHERE} AND root_id = '${escapeLiteral(rootId)}'` : BLOCK_WHERE
+async function queryTasks(where: string, limit: number, offset = 0, withIal = true): Promise<TaskBlockRow[]> {
+  const columns = withIal ? `${TASK_COLUMNS}, t.ial` : TASK_COLUMNS
+  const statement = `SELECT ${columns} ${TASK_FROM} WHERE ${TASK_WHERE} AND (${where}) ORDER BY t.id LIMIT ${limit} OFFSET ${offset}`
+  const rows = await sql<TaskBlockRow[]>(statement)
+  return Array.isArray(rows) ? rows : []
+}
+
+async function queryTasksCompatible(where: string, limit: number, offset = 0): Promise<{ rows: TaskBlockRow[]; hasIal: boolean }> {
   try {
-    const rows = await sql<TaskBlockRow[]>(
-      `SELECT ${BLOCK_COLUMNS}, ial FROM blocks WHERE ${scope}`,
-    )
-    return { rows: Array.isArray(rows) ? rows : [], hasIal: true }
-  } catch {
-    const rows = await sql<TaskBlockRow[]>(
-      `SELECT ${BLOCK_COLUMNS} FROM blocks WHERE ${scope}`,
-    )
-    return { rows: Array.isArray(rows) ? rows : [], hasIal: false }
+    return { rows: await queryTasks(where, limit, offset, true), hasIal: true }
+  } catch (error) {
+    return { rows: await queryTasks(where, limit, offset, false), hasIal: false }
   }
 }
 
-/** 只取指定块（用于事务增量刷新），同样优先带 `ial` */
-export async function fetchRowsByIds(ids: string[]): Promise<TaskBlockRow[]> {
-  if (ids.length === 0) {
-    return []
+export async function fetchTaskRows(): Promise<{ rows: TaskBlockRow[]; hasIal: boolean }> {
+  const rows: TaskBlockRow[] = []
+  let hasIal = true
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    let page: TaskBlockRow[]
+    try {
+      page = await queryTasks("1 = 1", PAGE_SIZE, offset, hasIal)
+    } catch (error) {
+      if (!hasIal || offset > 0) throw error
+      hasIal = false
+      page = await queryTasks("1 = 1", PAGE_SIZE, offset, false)
+    }
+    rows.push(...page)
+    if (page.length < PAGE_SIZE) break
+    if (offset >= 1_000_000) throw new Error("任务数量超过安全读取上限，请分批整理任务")
   }
-  const inClause = ids.map((id) => `'${escapeLiteral(id)}'`).join(",")
-  try {
-    return await sql<TaskBlockRow[]>(
-      `SELECT ${BLOCK_COLUMNS}, ial FROM blocks WHERE type = 'i' AND subtype = 't' AND id IN (${inClause})`,
-    )
-  } catch {
-    return await sql<TaskBlockRow[]>(
-      `SELECT ${BLOCK_COLUMNS} FROM blocks WHERE type = 'i' AND subtype = 't' AND id IN (${inClause})`,
-    )
+  return { rows, hasIal }
+}
+
+export async function fetchRowsByIds(ids: string[]): Promise<{ rows: TaskBlockRow[]; hasIal: boolean }> {
+  if (!ids.length) return { rows: [], hasIal: true }
+  const rows: TaskBlockRow[] = []
+  let hasIal = true
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const chunk = ids.slice(offset, offset + 200)
+    const clause = `t.id IN (${chunk.map((id) => `'${escapeLiteral(id)}'`).join(",")})`
+    const result = await queryTasksCompatible(clause, chunk.length)
+    hasIal = hasIal && result.hasIal
+    rows.push(...result.rows)
   }
+  return { rows, hasIal }
+}
+
+/** 创建时使用一次性标记定位真实 i/t 块，绝不猜响应中的第一个 ID。 */
+export async function findTaskIdsByToken(token: string): Promise<string[]> {
+  const literal = escapeLiteral(token)
+  const rows = await sql<{ id: string }[]>(
+    `SELECT id FROM blocks WHERE type = 'i' AND subtype = 't' AND (markdown LIKE '%${literal}%' OR content LIKE '%${literal}%') ORDER BY id LIMIT 2`,
+  )
+  return (rows ?? []).map((row) => row.id)
 }
 
 export interface NotebookInfo {
@@ -100,92 +118,75 @@ export async function listNotebooks(): Promise<NotebookInfo[]> {
   return data?.notebooks ?? []
 }
 
-/** 判断文档是否仍然存在 */
-export async function docExists(docId: string): Promise<boolean> {
-  try {
-    const rows = await sql<{ id: string }[]>(
-      `SELECT id FROM blocks WHERE type = 'd' AND id = '${escapeLiteral(docId)}'`,
-    )
-    return Array.isArray(rows) && rows.length > 0
-  } catch {
-    return false
-  }
-}
-
-/** 在指定笔记本下创建文档，返回文档 ID */
-export async function createDocWithMd(notebook: string, path: string, markdown = ""): Promise<string> {
-  return post<string>("/api/filetree/createDocWithMd", { notebook, path, markdown })
-}
-
-/** 获取（不存在则创建）当天日记文档 ID */
 export async function createDailyNote(box: string): Promise<string> {
-  const data = await post<{ id: string }>("/api/filetree/createDailyNote", { notebook: box })
-  return data?.id ?? ""
+  const data = await post<{ id: string } | string>("/api/filetree/createDailyNote", { notebook: box })
+  const id = typeof data === "string" ? data : data?.id
+  if (!id) throw new Error("创建日记后未获得文档 ID")
+  return id
+}
+
+export async function listDocuments(): Promise<{ id: string; hpath: string; box: string }[]> {
+  const rows = await sql<{ id: string; hpath: string; box: string }[]>(
+    "SELECT id, hpath, box FROM blocks WHERE type = 'd' ORDER BY updated DESC, id LIMIT 500",
+  )
+  return rows ?? []
+}
+
+export async function docMeta(docId: string): Promise<{ box: string; hpath: string }> {
+  const rows = await sql<{ box: string; hpath: string }[]>(
+    `SELECT box, hpath FROM blocks WHERE id = '${escapeLiteral(docId)}' AND type = 'd' LIMIT 1`,
+  )
+  const meta = rows?.[0]
+  if (!meta) throw new Error(`目标文档不存在：${docId}`)
+  return meta
 }
 
 export function setBlockAttrs(id: string, attrs: Record<string, string>): Promise<null> {
-  // 值为空字符串表示删除该属性
   return post<null>("/api/attr/setBlockAttrs", { id, attrs })
 }
 
-export function getBlockAttrs(id: string): Promise<Record<string, string>> {
-  return post<Record<string, string>>("/api/attr/getBlockAttrs", { id })
+export async function getBlockAttrs(id: string): Promise<Record<string, string>> {
+  const attrs = await post<Record<string, string>>("/api/attr/getBlockAttrs", { id })
+  return attrs ?? {}
 }
 
-export function updateBlockMarkdown(id: string, markdown: string): Promise<unknown> {
-  return post<unknown>("/api/block/updateBlock", { id, dataType: "markdown", data: markdown })
+export async function getBlockKramdown(id: string): Promise<string> {
+  const data = await post<{ kramdown: string }>("/api/block/getBlockKramdown", { id })
+  if (typeof data?.kramdown !== "string") throw new Error(`无法读取任务块源码：${id}`)
+  return data.kramdown
 }
 
-/** 作为最后一个子块插入 */
+export function updateBlock(id: string, markdown: string): Promise<unknown> {
+  return post("/api/block/updateBlock", { id, dataType: "markdown", data: markdown, lockType: true })
+}
+
 export function appendBlock(parentId: string, markdown: string): Promise<unknown> {
-  return post<unknown>("/api/block/appendBlock", { parentID: parentId, dataType: "markdown", data: markdown })
+  return post("/api/block/appendBlock", { parentID: parentId, dataType: "markdown", data: markdown })
 }
 
-/** 移动到新的父块 / 新位置 */
+export function insertBlock(previousId: string, markdown: string): Promise<unknown> {
+  return post("/api/block/insertBlock", { previousID: previousId, nextID: "", parentID: "", dataType: "markdown", data: markdown })
+}
+
 export function moveBlock(id: string, previousId: string, parentId: string): Promise<unknown> {
-  return post<unknown>("/api/block/moveBlock", { id, previousID: previousId, parentID: parentId })
+  return post("/api/block/moveBlock", { id, previousID: previousId, parentID: parentId })
 }
 
 export function deleteBlock(id: string): Promise<unknown> {
-  return post<unknown>("/api/block/deleteBlock", { id })
+  return post("/api/block/deleteBlock", { id })
 }
 
-/** 推送错误提示 */
-export function pushErrMsg(msg: string, timeout = 6000): Promise<unknown> {
-  return post<unknown>("/api/notification/pushErrMsg", { msg, timeout })
+export async function childBlocks(id: string): Promise<{ id: string; type?: string; subType?: string }[]> {
+  const rows = await post<{ id: string; type?: string; subType?: string }[]>("/api/block/getChildBlocks", { id })
+  return Array.isArray(rows) ? rows : []
 }
 
-/**
- * 从 insert/append 的返回值里尽力提取新块 ID。
- * 不同内核版本返回结构不一致，这里统一兜底为 `undefined`，由调用方重新查询。
- */
-export function extractInsertedId(result: unknown): string | undefined {
-  if (!result) {
-    return undefined
-  }
-  const visit = (node: unknown): string | undefined => {
-    if (typeof node === "string" && /^\d{14}-[a-z0-9]{7}$/.test(node)) {
-      return node
-    }
-    if (Array.isArray(node)) {
-      for (const item of node) {
-        const found = visit(item)
-        if (found) {
-          return found
-        }
-      }
-      return undefined
-    }
-    if (typeof node === "object" && node !== null) {
-      const record = node as Record<string, unknown>
-      if (typeof record.id === "string" && /^\d{14}-[a-z0-9]{7}$/.test(record.id)) {
-        return record.id
-      }
-      return visit(record.doOperations ?? record.data)
-    }
-    return undefined
-  }
-  return visit(result)
+export function pushErrMsg(msg: string, timeout = 7000): Promise<unknown> {
+  return post("/api/notification/pushErrMsg", { msg, timeout })
+}
+
+export function pushMsg(msg: string, timeout = 4000): Promise<unknown> {
+  return post("/api/notification/pushMsg", { msg, timeout })
 }
 
 function escapeLiteral(value: string): string {

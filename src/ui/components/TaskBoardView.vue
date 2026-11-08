@@ -1,58 +1,54 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
+import { ref } from "vue"
 
 import { isOverdue, relativeDueLabel } from "@/core/date"
 import type { TaskStatus } from "@/core/types"
 import { childStatsMap } from "@/store/childStats"
 import { strings } from "@/store/i18n"
-import { setStatus } from "@/store/tasks"
+import { setStatus, toggleDone } from "@/store/tasks"
 import { ui } from "@/store/ui"
 
 import { useTasks } from "../useTasks"
 
 const { columns } = useTasks()
-
 const dragId = ref("")
+const dragStatus = ref<TaskStatus | "">("")
 const hoverColumn = ref<TaskStatus | "">("")
 
-const childStats = computed(() => childStatsMap.value)
-
 function statusLabel(status: TaskStatus): string {
-  switch (status) {
-    case "doing":
-      return strings.statusDoing || "Doing"
-    case "done":
-      return strings.statusDone || "Done"
-    case "archived":
-      return strings.statusArchived || "Archived"
-    default:
-      return strings.statusTodo || "To do"
+  const keys: Record<TaskStatus, string> = {
+    todo: "statusTodo",
+    doing: "statusDoing",
+    done: "statusDone",
+    archived: "statusArchived",
   }
+  return strings[keys[status]] || status
 }
 
-function onDragStart(event: DragEvent, id: string): void {
+function start(event: DragEvent, id: string, status: TaskStatus): void {
   dragId.value = id
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = "move"
-    event.dataTransfer.setData("text/plain", id)
-  }
+  dragStatus.value = status
+  event.dataTransfer?.setData("text/plain", id)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move"
 }
 
-function onDrop(status: TaskStatus): void {
-  const id = dragId.value
+function reset(): void {
   dragId.value = ""
+  dragStatus.value = ""
   hoverColumn.value = ""
-  if (id) {
-    void setStatus(id, status)
-  }
+}
+
+async function drop(status: TaskStatus): Promise<void> {
+  const id = dragId.value
+  const unchanged = dragStatus.value === status
+  reset()
+  if (id && !unchanged) await setStatus(id, status)
 }
 </script>
 
 <template>
   <div class="bt-view">
-    <p class="bt-note-hint">{{ strings.boardDropHint || '' }}</p>
-    <p v-if="ui.showHelp" class="bt-note-hint">{{ strings.helpBody || '' }}</p>
-
+    <p class="bt-note-hint">{{ ui.showHelp ? strings.helpBody : strings.boardDropHint }}</p>
     <div class="bt-board">
       <section
         v-for="column in columns"
@@ -61,47 +57,46 @@ function onDrop(status: TaskStatus): void {
         :class="[`bt-col--${column.status}`, { 'bt-col--hover': hoverColumn === column.status }]"
         @dragover.prevent="hoverColumn = column.status"
         @dragleave="hoverColumn = ''"
-        @drop.prevent="onDrop(column.status)"
+        @drop.prevent="drop(column.status)"
       >
         <header class="bt-col__head">
           <span class="bt-col__dot" :class="`bt-col__dot--${column.status}`" />
           <span class="bt-col__title">{{ statusLabel(column.status) }}</span>
           <span class="bt-col__count">{{ column.tasks.length }}</span>
         </header>
-
         <div class="bt-col__body">
           <article
             v-for="task in column.tasks"
             :key="task.id"
             class="bt-card"
             :class="{ 'bt-card--selected': ui.selectedId === task.id }"
+            :data-id="task.id"
             draggable="true"
-            @dragstart="onDragStart($event, task.id)"
+            @dragstart="start($event, task.id, column.status)"
+            @dragend="reset"
             @click="ui.selectedId = task.id"
+            @dblclick="ui.detailId = task.id"
           >
             <div class="bt-card__top">
+              <button type="button" class="bt-check" :class="{ 'bt-check--on': task.status === 'done' }" @click.stop="toggleDone(task.id)">
+                <svg class="bt-check__icon" aria-hidden="true"><use xlink:href="#iconCheck" /></svg>
+              </button>
               <span class="bt-pri bt-pri--chip" :class="`bt-pri--${task.priority}`">P{{ task.priority }}</span>
-              <span class="bt-card__title">{{ task.title || "—" }}</span>
+              <span class="bt-card__title">{{ task.title }}</span>
             </div>
             <div class="bt-card__meta">
-              <span
-                v-if="task.due"
-                class="bt-chip"
-                :class="{ 'bt-chip--danger': isOverdue(task.due, task.status !== 'todo' && task.status !== 'doing') }"
-              >
+              <span v-if="task.due" class="bt-chip" :class="{ 'bt-chip--danger': isOverdue(task.due, !['todo', 'doing'].includes(task.status)) }">
                 {{ relativeDueLabel(task.due, strings) }}
               </span>
               <span v-if="task.repeat" class="bt-chip bt-chip--ghost">↻</span>
-              <span v-if="childStats.get(task.id)" class="bt-chip bt-chip--ghost">
-                {{ childStats.get(task.id)?.done }}/{{ childStats.get(task.id)?.total }}
+              <span v-if="childStatsMap.get(task.id)" class="bt-chip bt-chip--ghost">
+                {{ childStatsMap.get(task.id)?.done }}/{{ childStatsMap.get(task.id)?.total }}
               </span>
               <span v-if="task.note" class="bt-chip bt-chip--ghost">≡</span>
               <span v-if="task.category" class="bt-chip bt-chip--cat">{{ task.category }}</span>
-              <span v-if="task.inSpace" class="bt-chip bt-chip--ghost">{{ strings.spaceTitle }}</span>
             </div>
           </article>
-
-          <p v-if="column.tasks.length === 0" class="bt-col__empty">{{ strings.boardEmpty || 'Drop here' }}</p>
+          <p v-if="!column.tasks.length" class="bt-col__empty">{{ strings.boardEmpty }}</p>
         </div>
       </section>
     </div>

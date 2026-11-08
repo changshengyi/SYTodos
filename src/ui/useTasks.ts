@@ -1,97 +1,72 @@
 import { computed } from "vue"
 
 import {
-  buildRows,
+  buildListRows,
   buildTreeRows,
+  computeSpaceCounts,
   computeStatusCounts,
   computeViewCounts,
   groupTasks,
   matchesFilters,
-  orderedForest,
   sortTasks,
 } from "@/core/filter"
-import type { Task, TaskStatus } from "@/core/types"
+import type { Row, Task, TaskStatus } from "@/core/types"
 import { STATUSES } from "@/core/types"
 import { strings } from "@/store/i18n"
 import { listTasks, taskIndex, taskState } from "@/store/tasks"
 import { currentFilters, ui } from "@/store/ui"
 
-/**
- * 界面共用的派生数据。所有 computed 都依赖 `taskState.version`，
- * 因此任何写入都只会触发一次重算，不依赖定时器轮询。
- */
 export function useTasks() {
   const filters = computed(() => {
     void taskState.version
     return currentFilters()
   })
-
-  const counts = computed(() => {
-    void taskState.version
-    return computeViewCounts(listTasks(), filters.value)
-  })
-
-  const statusCounts = computed<Record<TaskStatus, number>>(() => {
-    void taskState.version
-    return computeStatusCounts(listTasks(), filters.value)
-  })
-
-  /** 当前筛选后的任务集合 */
-  const visible = computed<Task[]>(() => {
+  const counts = computed(() => computeViewCounts(listTasks(), filters.value))
+  const spaceCounts = computed(() => computeSpaceCounts(listTasks()))
+  const statusCounts = computed<Record<TaskStatus, number>>(() => computeStatusCounts(listTasks(), filters.value))
+  const matched = computed<Task[]>(() => {
     void taskState.version
     return listTasks().filter((task) => matchesFilters(task, filters.value))
   })
-
-  /** 列表视图：按分组 + 层级压平 */
-  const rows = computed(() => {
+  const matchedIds = computed(() => new Set(matched.value.map((task) => task.id)))
+  const rows = computed<Row[]>(() => {
     void taskState.version
-    void ui.groupBy
-    void ui.sortBy
-    void ui.collapsed
-    const groups = groupTasks(visible.value, ui.groupBy, ui.sortBy, strings)
-    return buildRows(groups, taskIndex(), ui.sortBy, ui.collapsed)
+    return buildListRows(groupTasks(matched.value, ui.groupBy, ui.sortBy, strings))
   })
-
-  /** 树形视图：只保留任务间的层级关系 */
-  const treeRows = computed(() => {
+  const treeRows = computed<Row[]>(() => {
     void taskState.version
-    void ui.sortBy
     void ui.collapsed
-    return buildTreeRows(visible.value, ui.sortBy, ui.collapsed)
+    return buildTreeRows(taskIndex(), matchedIds.value, ui.sortBy, ui.collapsed)
   })
-
-  /** 看板视图：按状态分列 */
   const columns = computed(() => {
     void taskState.version
-    void ui.sortBy
     return STATUSES.map((status) => ({
       status,
-      tasks: sortTasks(
-        visible.value.filter((task) => task.status === status),
-        ui.sortBy,
-      ),
+      tasks: sortTasks(matched.value.filter((task) => task.status === status), ui.sortBy),
     }))
   })
-
-  /** 拖拽重排使用的任务序列（保持当前视图内的父子顺序） */
-  const flatVisibleIds = computed<string[]>(() => {
-    void taskState.version
-    const ids = new Set(visible.value.map((task) => task.id))
-    return orderedForest(sortTasks(visible.value, ui.sortBy), ids, ui.sortBy).map((task) => task.id)
+  const navigableIds = computed<string[]>(() => {
+    if (ui.mode === "board") return columns.value.flatMap((column) => column.tasks.map((task) => task.id))
+    const source = ui.mode === "tree" ? treeRows.value : rows.value
+    return source.filter((row) => row.kind === "task").map((row) => row.id)
   })
-
   const categories = computed<string[]>(() => {
     void taskState.version
-    const set = new Set<string>()
+    const result = new Set<string>()
     for (const task of listTasks()) {
-      if (task.category) {
-        set.add(task.category)
-      }
+      if (task.space === ui.space && !task.trashed && task.category) result.add(task.category)
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"))
+    return Array.from(result).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"))
   })
-
-  const total = computed(() => listTasks().length)
-
-  return { filters, counts, statusCounts, visible, rows, treeRows, columns, flatVisibleIds, categories, total }
+  const summary = computed(() => {
+    void taskState.version
+    const scoped = listTasks().filter((task) => task.space === ui.space)
+    return {
+      total: scoped.length,
+      trashed: scoped.filter((task) => task.trashed).length,
+      visible: matched.value.length,
+      space: ui.space,
+    }
+  })
+  return { filters, counts, spaceCounts, statusCounts, matched, matchedIds, rows, treeRows, columns, navigableIds, categories, summary }
 }

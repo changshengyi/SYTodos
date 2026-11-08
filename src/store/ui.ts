@@ -5,53 +5,50 @@ import type {
   DueFilter,
   GroupBy,
   Priority,
-  Scope,
   SortBy,
+  SpaceId,
   TaskStatus,
   ViewId,
   ViewMode,
 } from "@/core/types"
+import { STATUSES } from "@/core/types"
 
 import { settings } from "./settings"
 
-/** 纯本地的界面状态，不落盘（除了通过 settings 的默认视图） */
 export const ui = reactive({
-  view: "today" as ViewId,
+  space: "siyuan" as SpaceId,
+  view: "all" as ViewId,
   mode: "list" as ViewMode,
-  scope: "all" as Scope,
   query: "",
-  /** 高级搜索：状态 / 优先级 / 截止 / 分类，空数组或默认值表示不限制 */
   statuses: [] as TaskStatus[],
   priorities: [] as Priority[],
   dueFilter: "any" as DueFilter,
   category: "",
   filterOpen: false,
-
-  groupBy: "due" as GroupBy,
-  sortBy: "priority" as SortBy,
-
+  groupBy: "none" as GroupBy,
+  sortBy: "manual" as SortBy,
   selectedId: "",
   editingId: "",
   checked: new Set<string>(),
-  /** 树形/列表里被折叠的任务 ID */
   collapsed: new Set<string>(),
-
   showSettings: false,
   showHelp: false,
+  showCreate: false,
+  createParentId: "",
+  detailId: "",
   rowHeight: 36,
 })
 
-/** 由当前界面状态组装筛选快照 */
 export function currentFilters(): Filters {
   return {
+    space: ui.space,
     view: ui.view,
-    scope: ui.scope,
-    spaceDocId: settings.spaceDocId,
     query: ui.query,
     statuses: ui.statuses,
     priorities: ui.priorities,
     dueFilter: ui.dueFilter,
     category: ui.category,
+    showDone: settings.showDone,
   }
 }
 
@@ -67,15 +64,17 @@ export function hasActiveFilters(): boolean {
 
 function toggleIn<T>(list: T[], value: T): void {
   const index = list.indexOf(value)
-  if (index >= 0) {
-    list.splice(index, 1)
-  } else {
-    list.push(value)
-  }
+  if (index >= 0) list.splice(index, 1)
+  else list.push(value)
 }
 
 export function toggleStatusFilter(status: TaskStatus): void {
+  if (!ui.statuses.length) {
+    ui.statuses = [status]
+    return
+  }
   toggleIn(ui.statuses, status)
+  if (ui.statuses.length === STATUSES.length) ui.statuses = []
 }
 
 export function togglePriorityFilter(priority: Priority): void {
@@ -91,25 +90,37 @@ export function resetFilters(): void {
 }
 
 export function toggleCollapsed(id: string): void {
-  if (ui.collapsed.has(id)) {
-    ui.collapsed.delete(id)
-  } else {
-    ui.collapsed.add(id)
-  }
+  if (ui.collapsed.has(id)) ui.collapsed.delete(id)
+  else ui.collapsed.add(id)
 }
 
 export function expandAll(): void {
   ui.collapsed.clear()
 }
 
+export function collapseAll(ids: string[]): void {
+  ui.collapsed.clear()
+  for (const id of ids) ui.collapsed.add(id)
+}
+
 export function toggleChecked(id: string): void {
-  if (ui.checked.has(id)) {
-    ui.checked.delete(id)
-  } else {
-    ui.checked.add(id)
-  }
+  if (ui.checked.has(id)) ui.checked.delete(id)
+  else ui.checked.add(id)
 }
 
 export function clearChecked(): void {
   ui.checked.clear()
+}
+
+export function openCreate(parentId = ""): void {
+  ui.createParentId = parentId
+  ui.showCreate = true
+}
+
+export function resetSelection(): void {
+  ui.selectedId = ""
+  ui.editingId = ""
+  ui.detailId = ""
+  ui.checked.clear()
+  ui.collapsed.clear()
 }

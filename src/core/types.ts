@@ -1,62 +1,106 @@
-/** 优先级：P0 最高、P3 最低。 */
+export type SpaceId = "siyuan" | "local"
 export type Priority = 0 | 1 | 2 | 3
-
-export const PRIORITIES: Priority[] = [0, 1, 2, 3]
-
-/** 任务状态。`done` 映射到任务列表块的 `[x]`，其余存在 `custom-bt-status` 属性里。 */
 export type TaskStatus = "todo" | "doing" | "done" | "archived"
+export type ViewId = "today" | "week" | "all" | "trash"
+export type ViewMode = "list" | "tree" | "board"
+export type DueFilter = "any" | "overdue" | "today" | "week" | "none"
+export type GroupBy = "none" | "due" | "priority" | "category" | "doc"
+export type SortBy = "manual" | "due" | "priority" | "created" | "title"
 
+export const SPACES: SpaceId[] = ["siyuan", "local"]
+export const PRIORITIES: Priority[] = [0, 1, 2, 3]
 export const STATUSES: TaskStatus[] = ["todo", "doing", "done", "archived"]
 
-/** 一条待办在内存中的表示。数据事实源始终是思源笔记里的任务列表块。 */
 export interface Task {
-  /** 块 ID */
+  space: SpaceId
   id: string
-  /** 父块 ID：可能是任务块（子任务），也可能是容器块/文档块（根任务） */
+  /** 最近的父任务 ID；根任务为空。 */
   parentId: string
-  /** 所属文档 ID */
+  /** 思源列表容器 ID。排序和移动必须以它为兄弟作用域。 */
+  containerId: string
   rootId: string
-  /** 笔记本 ID */
   box: string
-  /** 文档人类可读路径 */
   hpath: string
   title: string
   status: TaskStatus
   priority: Priority
-  /** YYYY-MM-DD，空字符串代表没有截止日期 */
+  start: string
   due: string
-  /** 重复规则，形如 `1d` `3d` `1w` `1m` `1y`，空字符串代表不重复 */
   repeat: string
   category: string
   note: string
-  /** 手动排序权重 */
   sort: number
   trashed: boolean
-  /** 是否属于「独立空间」任务树 */
-  inSpace: boolean
   created: string
   updated: string
 }
 
-/** 数据范围：全部 / 仅笔记里的任务列表块 / 仅独立空间 */
-export type Scope = "all" | "note" | "space"
+export type EditableTaskField =
+  | "title"
+  | "status"
+  | "priority"
+  | "start"
+  | "due"
+  | "repeat"
+  | "category"
+  | "note"
+  | "sort"
+  | "trashed"
 
-/** 时间快捷视图 */
-export type ViewId = "today" | "week" | "all" | "trash"
+export type TaskPatch = Partial<Pick<Task, EditableTaskField>>
 
-/** 展示形态 */
-export type ViewMode = "list" | "tree" | "board"
+export interface CreateTaskInput extends TaskPatch {
+  space: SpaceId
+  title: string
+  parentId?: string
+  docId?: string
+}
 
-export type DueFilter = "any" | "overdue" | "today" | "week" | "none"
+export interface TaskDraft extends TaskPatch {
+  space: SpaceId
+  title: string
+  parentId: string
+  containerId: string
+  rootId: string
+  box: string
+  hpath: string
+  sort: number
+  trashed: boolean
+}
 
-export type GroupBy = "none" | "due" | "priority" | "category" | "doc"
+export interface MoveTaskInput {
+  parentId: string
+  /** 根任务跨文档移动时必须指定目标文档。 */
+  docId?: string
+  /** 根任务在同一文档有多个列表时，用它消除排序歧义。 */
+  containerId?: string
+  position: "first" | "last" | "before" | "after"
+  anchorId?: string
+}
 
-export type SortBy = "manual" | "due" | "priority" | "created" | "title"
+export interface ResolvedMove {
+  parentId: string
+  rootId: string
+  containerId: string
+  previousId: string
+}
 
-/** 扁平渲染行 */
+export interface TaskChange {
+  before: Task
+  after: Task
+}
+
 export type Row =
   | { kind: "group"; key: string; label: string; count: number }
-  | { kind: "task"; key: string; id: string; depth: number; hasChildren: boolean; collapsed: boolean }
+  | {
+      kind: "task"
+      key: string
+      id: string
+      depth: number
+      hasChildren: boolean
+      collapsed: boolean
+      muted: boolean
+    }
 
 export interface Group {
   key: string
@@ -65,47 +109,27 @@ export interface Group {
   ids: string[]
 }
 
-/** 撤销栈条目 */
-export interface UndoEntry {
-  label: string
-  undo: () => Promise<void>
-  redo?: () => Promise<void>
-}
-
 export interface PluginSettings {
-  /** 新建笔记待办默认写入的文档 ID；留空表示自动使用当天日记 */
+  defaultSpace: SpaceId
   defaultDocId: string
-  /** 自动使用当天日记时的笔记本 ID；留空表示第一个笔记本 */
   defaultBox: string
-  /** 独立空间任务树所在文档 ID */
-  spaceDocId: string
-  /** 独立空间所在的笔记本 ID */
-  spaceBox: string
-  /** 默认视图 */
   defaultView: ViewId
-  /** 默认展示形态 */
   defaultMode: ViewMode
-  /** 默认分组方式 */
   defaultGroupBy: GroupBy
-  /** 默认排序方式 */
   defaultSortBy: SortBy
-  /** 重复任务勾选后自动推进到下一次（不标记为已完成） */
   repeatAdvance: boolean
-  /** 「全部」时间视图里是否包含已完成/已归档 */
   showDone: boolean
-  /** 关闭动效 */
   reduceMotion: boolean
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
+  defaultSpace: "siyuan",
   defaultDocId: "",
   defaultBox: "",
-  spaceDocId: "",
-  spaceBox: "",
-  defaultView: "today",
+  defaultView: "all",
   defaultMode: "list",
-  defaultGroupBy: "due",
-  defaultSortBy: "priority",
+  defaultGroupBy: "none",
+  defaultSortBy: "manual",
   repeatAdvance: true,
   showDone: true,
   reduceMotion: false,

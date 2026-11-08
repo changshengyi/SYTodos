@@ -5,70 +5,83 @@
 ## 环境
 
 - Node.js 18+
-- npm（或 pnpm）
-- 本地已安装思源笔记
+- npm
+- 本地联调需要思源笔记；浏览器端到端测试需要 Playwright Chromium
 
 ```bash
 npm install
+npx playwright install chromium
 ```
 
 ## 常用命令
 
 | 命令 | 作用 |
 |---|---|
-| `npm run dev` | 监听源码，实时构建并写入思源插件目录，改完在思源里禁用再启用插件即可 |
-| `npm run build` | 生产构建，输出 `dist/` 与 `package.zip` |
-| `npm run typecheck` | TypeScript 类型检查 |
-| `npm run check-package` | 校验产物是否符合集市上架要求 |
-| `npm run assets` | 重新生成 `icon.png` 与 `preview.png` |
-| `npm run release` | 类型检查 + 构建 + 校验，发布前跑这个 |
+| `npm run dev` | 监听源码并写入开发插件目录 |
+| `npm run typecheck` | TypeScript 与 Vue 类型检查 |
+| `npm test` | 核心、持久化、块协议和命令服务测试 |
+| `npm run test:e2e` | 启动真实 Vue 应用，运行 Chromium 用户流程测试 |
+| `npm run build` | 输出 `dist/` 与 `package.zip` |
+| `npm run check-package` | 校验集市发布包 |
+| `npm run verify` | 类型检查 + 全部测试 + 构建 + 发布包校验 |
+| `npm run release` | 同 `verify`，发布前必须通过 |
 
 ## 本地联调
 
 在项目根目录创建 `.env.local`：
 
-```
+```text
 VITE_SIYUAN_WORKSPACE_PATH=D:/siyuan_data
 ```
 
-然后执行 `npm run dev`，构建产物会直接写入：
+执行 `npm run dev` 后，产物写入 `{工作空间}/data/plugins/SYTodos/`。在思源里禁用再启用插件即可加载新构建。
 
-```
-{工作空间}/data/plugins/SYTodos/
-```
+## 架构
 
-`dist/` 不要放在 `data/plugins/` 下——那里会被同步，卸载插件时目录会被整体删除。
-
-## 目录结构
-
-```
+```text
 src/
-├── index.ts              插件入口：注册页签、顶栏按钮、命令、事务监听
-├── App.vue               根组件：三视图切换 + 全局键盘
-├── api/kernel.ts         思源内核 HTTP 接口封装
-├── core/
-│   ├── types.ts          任务模型、状态、筛选类型、设置类型
-│   ├── task.ts           任务块 ↔ 内存模型的双向映射
-│   ├── filter.ts         筛选、计数、排序、分组、树形展开
-│   └── date.ts           日期与重复规则
-├── store/                内存仓库、缓存、撤销栈、设置
-├── ui/                   组件与派生数据
-├── i18n/                 中英文语言包
-└── styles/index.scss     样式（全部使用思源主题变量）
+├── index.ts                    插件生命周期、页签与事务事件
+├── api/kernel.ts               严格内核 API、分页、索引冲刷
+├── core/                       无宿主依赖的任务模型、树、日期、筛选
+├── data/
+│   ├── repository.ts           两个空间共同的仓库契约
+│   ├── siyuanRepository.ts     真实块与块属性仓库
+│   └── storage.ts              插件存储响应检查
+├── store/
+│   ├── taskService.ts          唯一串行命令层与撤销/重做
+│   ├── tasks.ts                UI 使用的命令门面
+│   ├── local.ts                独立空间 v2 存档、校验、迁移、备份
+│   ├── drafts.ts               按任务隔离的详情草稿与单航班冲刷
+│   ├── settings.ts             可等待的设置持久化
+│   └── ui.ts                   瞬态界面状态
+├── ui/                         三视图、表单、拖拽与派生数据
+└── styles/index.scss           思源主题适配
 ```
 
-## 设计约束
+## 不可破坏的约束
 
-1. **任务块是唯一事实源。** 插件不存任务副本；所有读写都落到笔记里的任务列表块与块属性上。
-2. **不轮询。** 数据变化通过内核的 `transactions` 事件做增量更新，禁止引入定时全量刷新。
-3. **长列表必须窗口化。** 新增列表类视图时沿用现有的窗口化渲染。
-4. **派生计算只做一次。** 全表扫描类统计放进 `store/childStats.ts` 这类共享缓存。
-5. **不引入运行时依赖。** 目前运行时只有 Vue；新增依赖需要明确理由。
+1. **单一事实源**：SiYuan 任务来自真实 `i/t` 块，独立任务来自 v2 存档；不得在组件中另建权威副本。
+2. **命令串行**：所有读取协调、写入、结构移动和历史操作进入 `TaskService` 队列。界面不得直接调用块 CRUD 或 `saveData`。
+3. **提交后回读**：仓库方法只有持久化成功并验证权威快照后才返回。失败不得先把乐观状态伪装成成功。
+4. **父级来自块结构**：父任务由 `i/t → l → i/t` 的真实类型关系推导。兄弟作用域必须包含 `space + rootId + containerId + parentId`。
+5. **创建不猜 ID**：新块使用唯一临时标题，调用 `/api/sqlite/flushTransaction` 后在 `i/t` 索引中精确定位；禁止采用“第一个块 ID”兜底。
+6. **内容更新保留子树**：既有任务使用 `getBlockKramdown` 后只改首行标记或标题，保留附加内容、子列表和块 ID；失败执行补偿回滚。
+7. **存档失败不覆盖**：重复 ID、悬空父级、循环、非法枚举和非法日期必须拒绝加载；主存档损坏时只能读取有效备份，不得自动写空数组。
+8. **草稿绑定 ID**：详情文本只能经 `store/drafts.ts` 保存。失败保留草稿，保存期间的新值优先于旧值。
+9. **空间与回收站隔离**：不得跨空间建立父子关系，不得把未删除任务移入已删除父级，回收、恢复和永久删除采用一致的子树语义。
+10. **三种视图行模型分离**：列表只生成平铺任务行与可选分组标题，不读取父子关系、缩进和折叠状态；层级、祖先上下文和折叠只属于树形视图；看板只按状态分列。
+11. **破坏性操作统一确认**：移入回收站、永久删除、清空回收站及批量/键盘删除只能经 `ui/useDeleteActions.ts` 的确认流程执行；禁止在组件中直接调用原生 `window.confirm` 或删除命令。
+12. **运行时依赖保持精简**：当前运行时只有 Vue，测试工具不得进入插件产物。
+
+## 测试
+
+- `tests/`：日期、筛选、树约束、IAL、全字段存档、备份恢复、块创建/回滚、串行命令、历史和草稿竞态。
+- `e2e/`：真实 Vue 应用 + 真实命令服务 + 浏览器 `localStorage`，覆盖创建、父子关系、刷新、详情自动保存、看板、键盘缩进、撤销与回收站。
+- 修改块协议后，除自动化测试外还应在目标思源版本手工验证：根/子任务创建、带附加内容的父任务改名、跨文档移动、重启后字段一致，以及笔记内直接勾选后的同步。
 
 ## 发布
 
-1. 更新 `package.json` 与 `plugin.json` 的 `version`，在 `CHANGELOG.md` 写明用户可见的变更。
-2. `npm run release` 必须通过。
-3. 在 GitHub 创建 Release，Tag 与版本号一致（如 `0.2.2`），附上 `package.zip`。
-4. 首次上架：Fork [siyuan-note/bazaar](https://github.com/siyuan-note/bazaar)，在 `plugins.txt` 末尾加一行 `changshengyi/SYTodos`，提 PR 到 `main`。一个 PR 只加一个包。
-5. 之后每次发版只需在自己仓库发 Release，集市索引会在 1–3 小时内自动更新。
+1. 更新 `package.json` 与 `plugin.json` 的 `version`，在 `CHANGELOG.md` 写明用户可见变更。
+2. 执行 `npm run release`，必须全部通过。
+3. 在 GitHub 创建同版本 Release，附上 `package.zip`。
+4. 集市索引按原项目发布流程更新。

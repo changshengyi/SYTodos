@@ -3,77 +3,65 @@ import { openTab, Plugin } from "siyuan"
 import type { Custom } from "siyuan"
 
 import App from "./App.vue"
-import { loadAll, scheduleSync, syncIds, taskState } from "./store/tasks"
-import type { StorageHost } from "./store/settings"
-import { loadSettings, queueSaveSettings, settings, STORAGE_HOST } from "./store/settings"
-import { setStrings, strings } from "./store/i18n"
+import * as kernel from "./api/kernel"
+import { today } from "./core/date"
+import { LocalTaskRepository } from "./store/local"
+import { SiyuanTaskRepository } from "./data/siyuanRepository"
+import { flushAllDrafts } from "./store/drafts"
 import { setHost } from "./store/host"
+import { setStrings, strings } from "./store/i18n"
+import {
+  flushSettings,
+  loadSettings,
+  setSettingsNotifier,
+  settings,
+} from "./store/settings"
+import type { StorageHost } from "./data/storage"
+import { STORAGE_HOST } from "./store/settings"
+import {
+  cancelScheduledSync,
+  configureTaskService,
+  flushTasks,
+  loadAll,
+  scheduleSync,
+} from "./store/tasks"
 import { ui } from "./store/ui"
 import "./styles/index.scss"
 
-const TAB_TYPE = "blocktodo_tab"
+const TAB_TYPE = "sytodos_tab"
 const TOP_BAR_ICON = "iconCheck"
-
-interface Operation {
-  id?: string
-  action?: string
-}
-
-/** 从 ws-main 的 transactions 里提取受影响的块 ID */
-function collectIds(data: unknown): string[] {
-  const ids = new Set<string>()
-  const visit = (node: unknown) => {
-    if (!node || typeof node !== "object") {
-      return
-    }
-    if (Array.isArray(node)) {
-      node.forEach(visit)
-      return
-    }
-    const record = node as Record<string, unknown>
-    if (typeof record.id === "string" && /^\d{14}-[a-z0-9]{7}$/.test(record.id)) {
-      ids.add(record.id)
-    }
-    if (record.doOperations) {
-      visit(record.doOperations)
-    }
-    if (record.undoOperations) {
-      visit(record.undoOperations)
-    }
-  }
-  visit((data as { doOperations?: Operation[] }[]) ?? [])
-  return Array.from(ids)
-}
 
 export default class SyTodoPlugin extends Plugin {
   private roots = new Map<HTMLElement, ReturnType<typeof createApp>>()
+  private dailyNote: { key: string; id: string } | undefined
 
   override async onload(): Promise<void> {
     setStrings(this.i18n)
     setHost({
       app: this.app,
-      openDoc: async (rootId, blockId) => {
-        await openTab({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          app: this.app as any,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          doc: { id: rootId, zoomIn: false } as any,
-        })
-        if (blockId) {
-          window.setTimeout(() => {
-            const node = document.querySelector(`[data-node-id="${blockId}"]`)
-            node?.scrollIntoView({ block: "center" })
-          }, 800)
-        }
-      },
+      openDoc: (rootId, blockId) => this.openDocument(rootId, blockId),
     })
-
+    const notify = async (message: string): Promise<void> => {
+      await kernel.pushErrMsg(message)
+    }
+    setSettingsNotifier(notify)
     await loadSettings(this)
-    ui.view = settings.defaultView
-    ui.mode = settings.defaultMode
-    ui.groupBy = settings.defaultGroupBy
-    ui.sortBy = settings.defaultSortBy
-    queueSaveSettings(this)
+    Object.assign(ui, {
+      space: settings.defaultSpace,
+      view: settings.defaultView,
+      mode: settings.defaultMode,
+      groupBy: settings.defaultGroupBy,
+      sortBy: settings.defaultSortBy,
+    })
+    configureTaskService({
+      repositories: {
+        siyuan: new SiyuanTaskRepository(kernel),
+        local: new LocalTaskRepository(this),
+      },
+      resolveDefaultDoc: () => this.resolveDefaultDoc(),
+      shouldAdvanceRepeat: () => settings.repeatAdvance,
+      notify,
+    })
 
     const plugin = this
     this.addTab({
@@ -85,55 +73,69 @@ export default class SyTodoPlugin extends Plugin {
         plugin.unmountView(this.element as HTMLElement)
       },
     })
-
     this.addTopBar({
       icon: TOP_BAR_ICON,
       title: strings.pluginName || "SYTodos",
-      callback: () => {
-        void this.openTodoTab()
-      },
+      callback: () => void this.openTodoTab(),
     })
-
-    this.addCommand({
-      langKey: "openTodo",
-      callback: () => {
-        void this.openTodoTab()
-      },
-    })
-
+    this.addCommand({ langKey: "openTodo", callback: () => void this.openTodoTab() })
     this.eventBus.on("ws-main", this.handleTransaction)
     document.addEventListener("visibilitychange", this.handleVisibility)
-
-    // 首次渲染时后台静默加载，避免阻塞插件挂载
-    await loadAll()
+    void loadAll()
   }
 
   override onLayoutReady(): void {
-    // 布局就绪后再确认一次数据，避免加载到旧快照
-    if (taskState.loaded) {
-      scheduleSync(Array.from(taskState.tasks.keys()).slice(0, 200))
-    }
+    void loadAll()
   }
 
-  override onunload(): void {
+  override async onunload(): Promise<void> {
     document.removeEventListener("visibilitychange", this.handleVisibility)
     this.eventBus.off("ws-main", this.handleTransaction)
+    cancelScheduledSync()
+    await flushAllDrafts()
+    await flushSettings()
     this.roots.forEach((app) => app.unmount())
     this.roots.clear()
+    await flushTasks()
+    setSettingsNotifier(undefined)
+  }
+
+  private async resolveDefaultDoc(): Promise<string> {
+    if (settings.defaultDocId) {
+      await kernel.docMeta(settings.defaultDocId)
+      return settings.defaultDocId
+    }
+    const notebooks = (await kernel.listNotebooks()).filter((notebook) => !notebook.closed)
+    const box = settings.defaultBox || notebooks[0]?.id || ""
+    if (!box) throw new Error("没有可用的已打开笔记本")
+    const key = `${box}|${today()}`
+    if (this.dailyNote?.key === key) return this.dailyNote.id
+    const id = await kernel.createDailyNote(box)
+    this.dailyNote = { key, id }
+    return id
   }
 
   private openTodoTab(): Promise<unknown> {
     ui.showSettings = false
     return openTab({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      app: this.app as any,
-      custom: {
-        id: this.name + TAB_TYPE,
-        icon: TOP_BAR_ICON,
-        title: this.i18n.pluginName ?? "SYTodos",
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)
+      app: this.app,
+      custom: { id: this.name + TAB_TYPE, icon: TOP_BAR_ICON, title: this.i18n.pluginName ?? "SYTodos" },
+    } as Parameters<typeof openTab>[0])
+  }
+
+  private async openDocument(rootId: string, blockId?: string): Promise<void> {
+    await openTab({ app: this.app, doc: { id: rootId, zoomIn: false } } as Parameters<typeof openTab>[0])
+    if (!blockId) return
+    const deadline = Date.now() + 3000
+    while (Date.now() < deadline) {
+      const node = document.querySelector(`[data-node-id="${blockId}"]`)
+      if (node) {
+        node.scrollIntoView({ block: "center" })
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+    await kernel.pushErrMsg("文档已打开，但未能定位目标任务块")
   }
 
   private mountView(element: HTMLElement): void {
@@ -146,38 +148,21 @@ export default class SyTodoPlugin extends Plugin {
   }
 
   private unmountView(element: HTMLElement): void {
-    const app = this.roots.get(element)
-    if (app) {
-      app.unmount()
-      this.roots.delete(element)
-    }
+    this.roots.get(element)?.unmount()
+    this.roots.delete(element)
   }
 
-  /**
-   * 只在真正发生变更时做增量同步。
-   * 相比「定时器 + 全量快照比对」，这里既不轮询也不重复反序列化全量数据。
-   */
   private handleTransaction = (event: Event): void => {
-    const detail = (event as CustomEvent).detail as { cmd?: string; data?: unknown } | undefined
-    if (!detail || detail.cmd !== "transactions") {
-      return
-    }
-    const ids = collectIds(detail.data)
-    if (ids.length === 0) {
-      return
-    }
-    if (ids.length > 300) {
-      void loadAll()
-      return
-    }
-    void syncIds(ids)
+    const detail = (event as CustomEvent).detail as { cmd?: string } | undefined
+    if (detail?.cmd === "transactions") scheduleSync()
   }
 
   private handleVisibility = (): void => {
-    if (document.hidden || taskState.tasks.size === 0) {
-      return
+    if (document.hidden) {
+      void flushAllDrafts()
+      void flushSettings()
+    } else {
+      void loadAll()
     }
-    // 回到前台时做一次轻量核对
-    void syncIds(Array.from(taskState.tasks.keys()).slice(0, 200))
   }
 }

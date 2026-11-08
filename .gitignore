@@ -15,6 +15,10 @@ package.zip
 .DS_Store
 __MACOSX
 
+# test output
+test-results
+playwright-report
+
 # logs
 *.log
 *.log.*

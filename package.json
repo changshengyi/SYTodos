@@ -1,6 +1,6 @@
 {
   "name": "sytodos",
-  "version": "0.2.3",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
   "description": "Block-native, high-performance todo management plugin for SiYuan Note",
@@ -21,15 +21,23 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "assets": "node ./scripts/make-assets.mjs",
     "check-package": "node ./scripts/check-package.mjs",
-    "release": "npm run typecheck && npm run build && npm run check-package"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm test && npm run build && npm run test:e2e && npm run check-package",
+    "dev:e2e": "vite --config e2e/vite.config.ts --host 127.0.0.1",
+    "release": "npm run verify"
   },
   "dependencies": {
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.1",
     "@types/node": "^22.13.0",
     "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
     "fast-glob": "^3.3.3",
+    "jsdom": "^26.0.0",
     "minimist": "^1.2.8",
     "rollup-plugin-livereload": "^2.0.5",
     "sass": "^1.86.0",
@@ -38,6 +46,7 @@
     "vite": "^6.2.1",
     "vite-plugin-static-copy": "^2.3.0",
     "vite-plugin-zip-pack": "^1.0.5",
+    "vitest": "^3.2.4",
     "vue-tsc": "^2.2.0"
   }
 }

@@ -2,7 +2,7 @@
   "name": "SYTodos",
   "author": "changshengyi",
   "url": "https://github.com/changshengyi/SYTodos",
-  "version": "0.2.3",
+  "version": "0.4.2",
   "minAppVersion": "3.0.0",
   "backends": [
     "windows",
@@ -25,8 +25,8 @@
     "zh-CN": "SY 待办"
   },
   "description": {
-    "default": "A block-native todo manager for SiYuan: every task is a real task-list block in your notes, with P0-P3 priority, due dates, repeats, notes, virtualized lists and keyboard-first interaction.",
-    "zh-CN": "面向思源的块原生待办管理器：每个待办就是笔记里真实的任务列表块。支持 P0-P3 优先级、截止日期、重复规则、备注、虚拟滚动列表与键盘优先交互。"
+    "default": "A block-native todo manager for SiYuan: every task is a real task-list block, and nesting is just your note's nested list. P0-P3 priority, due dates, repeats, notes, virtualized lists and keyboard-first interaction.",
+    "zh-CN": "面向思源的块原生待办管理器：每个待办就是笔记里真实的任务列表块，父子关系就是笔记里的嵌套列表。支持 P0-P3 优先级、截止日期、重复规则、备注、虚拟滚动列表与键盘优先交互。"
   },
   "readme": {
     "default": "README.md",
